@@ -54,7 +54,7 @@ class Serial:
             checksum = command_id ^ length
 
             # 将 float 转为 4 字节 bytes，并逐字节计算校验
-            yaw_bytes = struct.pack('<f', yaw)
+            yaw_bytes = struct.pack('<f', -yaw)
             pitch_bytes = struct.pack('<f', pitch)
             control_bytes = struct.pack('<B', control_id)
             for byte in yaw_bytes + pitch_bytes + control_bytes:

@@ -39,4 +39,4 @@ class Tracker:
             return None, None  # 如果 light 为 None，返回默认角度
         target = self.tf(light)
         yaw, pitch = self.pixel_to_yaw_pitch(target)
-        return yaw, pitch
+        return yaw * self.yaw_pid, pitch * self.pitch_pid

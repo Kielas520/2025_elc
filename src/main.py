@@ -82,8 +82,15 @@ def update_hsv():
     detector.shrink_distance = shrink
     detector.min_pic_area = min_pic_area
     detector.max_pic_area = max_pic_area
-    tracker.yaw_pid = yaw_pid / 100
-    tracker.pitch_pid = pitch_pid / 100
+    
+    if yaw_pid == 0:
+        pass
+    else:
+        tracker.yaw_pid = yaw_pid / 100
+    if pitch_pid == 0:
+        pass
+    else:
+        tracker.pitch_pid = pitch_pid / 100
 
     if separate == 0:
         detector.separate = 1

@@ -53,9 +53,10 @@ def main():
         
         blobs = detector.detect(frame)
         yaw, pitch = tracker.track(blobs, dt=1/120)  # 传递 dt 参数给 tracker
-        serial.send_data(yaw, pitch)
-        cv2.imshow('Camera', frame)
-        cv2.imshow('Mask', detector.mask)
+        yaw = 0
+        serial.send_data(-yaw, pitch)
+        # cv2.imshow('Camera', frame)
+        # cv2.imshow('Mask', detector.mask)
         cv2.imshow('Result', detector.result)
 
         # 计算 FPS
@@ -72,8 +73,8 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=4, format='MJPG', width=1280, height=720, fps=120)
+cam = camera.Camera(index=30, format='MJPG', width=640, height=480, fps=120)
 detector = Detector.Detector(color = [(27, 255, 106), (16, 64, 64)], min_area=1000)
-tracker = Tracker.Tracker()
-serial = Serial.Serial(port='/dev/ttyACM0', baudrate=115200, timeout=1, write_timeout=1)
+tracker = Tracker.Tracker(frame_add = 5)
+serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
 main()

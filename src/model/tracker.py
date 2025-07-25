@@ -61,9 +61,9 @@ class Tracker:
         pitch = math.atan(center[1] / focal_pixel_distance) * RAD2DEG
         return yaw, pitch
 
-    def track(self, blobs, dt=1/120):
+    def track(self, point, dt=1/120):
         """跟踪目标，融合卡尔曼滤波"""
-        center = self.select_target(blobs)
+        center = point
         
         if center is None:
             # 没有检测到目标

@@ -3,12 +3,12 @@ import numpy as np
 
 class Light:
     def __init__(self):
-        self.center = None
+        self.position = None
         self.area = None
 
 class Board:
     def __init__(self):
-        self.points = []
+        self.points = []  # 四边形角点 [左上, 左下, 右下, 右上]
 
 class Detector:
     def __init__(self, color, light_min_area, board_min_area, bin_val):
@@ -23,6 +23,10 @@ class Detector:
         self.board_min_area = board_min_area
         self.boards = []
 
+        self.draw_points = []  # 存储每个板的变换后图形坐标
+        self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
+        self.std_triangle = np.float32([[5, 2], [15, 5], [10, 15]])
+        self.drawn = []
         self.result_img = None
     
     def process(self, frame):
@@ -34,8 +38,6 @@ class Detector:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, self.bin_val, 255, cv2.THRESH_BINARY)
         self.binary = binary
-        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        # mask = cv2.dilate(mask, kernel, iterations=1)
 
         return mask, binary
     
@@ -73,48 +75,123 @@ class Detector:
         self.boards = boards
         return boards
     
-    def find_light(self, mask, img):
+    def find_light(self, mask):
         lights = []
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        height, width = img.shape[:2]
-        
         for contour in contours:
             area = cv2.contourArea(contour)
             if area > self.light_min_area:
-                x, y, w, h = cv2.boundingRect(contour)
+                x, y, _, _ = cv2.boundingRect(contour)
                 light = Light()
-                center_x = x + w / 2 - width / 2
-                center_y = y + h / 2 - height / 2
-                light.center = (center_x, center_y)
+                light.position = (x, y)
                 light.area = area
                 lights.append(light)
         
         self.lights = lights
         return lights
-    
+
+    def get_to_draw_points(self, boards):
+        """
+        Computes and stores the transformed triangle coordinates for each board in self.draw_points.
+        """
+        draw_points = [] 
+        for board in boards:
+            if len(board.points) == 4:
+                dst_pts = np.float32(board.points)
+                M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
+                triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
+                triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
+                draw_points.append([tuple(pt) for pt in triangle_pts])
+        self.draw_points = draw_points
+        
+        return draw_points
+
+    def draw(self, draw_points, lights):
+        # 找到激光点（面积最小的光点）
+        dot = min(lights, key=lambda light: light.area) if lights else None
+        
+        # 如果没有绘制点，返回原点
+        if not draw_points:
+            return (0, 0)
+        
+        # 获取当前需要追踪的点
+        current_triangle = draw_points[0]  # 始终追踪第零个三角形
+        remaining_points = [pt for pt in current_triangle if tuple(pt) not in self.drawn]
+        
+        # 如果所有点都已绘制完成，清空 self.drawn 以重复绘制
+        if not remaining_points:
+            self.drawn.clear()
+            remaining_points = current_triangle
+        
+        # 选择当前追踪的点（remaining_points 中的第一个点）
+        target_point = remaining_points[0]
+        
+        # 如果没有激光点，返回第零个三角形的第一个点
+        if not dot:
+            return tuple(target_point)
+        
+        # 计算激光点与目标点的距离
+        laser_pos = np.array(dot.position, dtype=np.float32)
+        target_pos = np.array(target_point, dtype=np.float32)
+        distance = np.linalg.norm(laser_pos - target_pos)
+        
+        # 判断是否重合（距离阈值设为 10 像素，可调整）
+        if distance < 10:
+            # 激光点与目标点重合，添加到已处理列表
+            self.drawn.append(tuple(target_point))
+            # 递归调用以处理下一个点
+            return self.draw(draw_points, lights)
+        
+        # 返回当前需要瞄准的点的坐标
+        return tuple(target_point)
+
+    def tf_point(self, point, frame):
+        '''
+        转换坐标原点，让原点变成图像中心位置
+        '''
+        if frame is None:
+            raise ValueError("No frame available for coordinate transformation")
+        
+        height, width = frame.shape[:2]
+        center_x = point[0] - width / 2
+        center_y = point[1] - height / 2
+        return (center_x, center_y)
+
     def display(self, frame):
         img = frame.copy()  # Create a copy for drawing
-        # 绘制背景板（四边形连线）
+        
+        # 绘制背景板（四边形连线，绿色）
         for board in self.boards:
             if len(board.points) == 4:
                 pts = np.array(board.points, np.int32)
                 cv2.polylines(img, [pts], True, (0, 255, 0), 2)
-                # 可选：标记角点序号
+                # 标记角点序号
                 for i, pt in enumerate(board.points):
                     cv2.putText(img, str(i), pt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
         
-        # 绘制激光点（中心点）
+        # 绘制目标三角形（红色）
+        if self.draw_points:
+            triangle = self.draw_points[0]  # 取第零个三角形
+            pts = np.array(triangle, np.int32)
+            cv2.polylines(img, [pts], True, (0, 0, 255), 2)  # 红色线条
+        
+        # 绘制激光点（绿色）
         for light in self.lights:
-            if light.center:
-                # 相对坐标转绝对坐标
-                center_x = int(light.center[0] + img.shape[1] / 2)
-                center_y = int(light.center[1] + img.shape[0] / 2)
-                cv2.circle(img, (center_x, center_y), 5, (0, 255, 0), -1)
+            if light.position:
+                cv2.circle(img, (int(light.position[0]), int(light.position[1])), 5, (0, 255, 0), -1)
+        
+        # 绘制已处理的点（白色）
+        for point in self.drawn:
+            cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 255, 255), -1)
+        
         self.result_img = img
         return img
     
     def detect(self, frame):
         mask, binary = self.process(frame)
-        lights = self.find_light(mask, frame)
+        lights = self.find_light(mask)
         boards = self.find_board(binary)
-        return lights
+        draw_points = self.get_to_draw_points(boards)
+        point = self.draw(draw_points, lights)
+        point = self.tf_point(point, frame)
+        return point

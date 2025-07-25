@@ -17,12 +17,12 @@ def init_board():
     cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
     # Create trackbars for HSV thresholds (initial values for light yellow)
     cv2.namedWindow('Controls')
-    cv2.createTrackbar('H Min', 'Controls', 16, 179, nothing)  # Hue min (yellow ~20-30)
-    cv2.createTrackbar('H Max', 'Controls', 27, 179, nothing)  # Hue max
-    cv2.createTrackbar('S Min', 'Controls', 64, 255, nothing) # Saturation min
+    cv2.createTrackbar('H Min', 'Controls', 129, 179, nothing)  # Hue min (yellow ~20-30)
+    cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)  # Hue max
+    cv2.createTrackbar('S Min', 'Controls', 47, 255, nothing) # Saturation min
     cv2.createTrackbar('S Max', 'Controls', 255, 255, nothing) # Saturation max
-    cv2.createTrackbar('V Min', 'Controls', 64, 255, nothing) # Value min
-    cv2.createTrackbar('V Max', 'Controls', 106, 255, nothing) # Value max
+    cv2.createTrackbar('V Min', 'Controls', 81, 255, nothing) # Value min
+    cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing) # Value max
     cv2.createTrackbar('light_area', 'Controls', 5, 200, nothing)
     cv2.createTrackbar('board_min_area', 'Controls', 81000, 200000, nothing)
     cv2.createTrackbar('bin_thresh', 'Controls', 50, 255, nothing)
@@ -61,8 +61,8 @@ def main():
 
         update_hsv()
         
-        blobs = detector.detect(frame)
-        yaw, pitch = tracker.track(blobs, dt=1/120)  # 传递 dt 参数给 tracker
+        position = detector.detect(frame)
+        yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
         yaw = 0
         result = detector.display(frame)
         # serial.send_data(-yaw, pitch)

@@ -93,17 +93,43 @@ class Detector:
     def get_to_draw_points(self, boards):
         """
         Computes and stores the transformed triangle coordinates for each board in self.draw_points.
+        If the distance between adjacent points exceeds 80 pixels, insert additional points.
         """
-        draw_points = [] 
+        draw_points = []
         for board in boards:
             if len(board.points) == 4:
+                # 进行透视变换生成三角形点
                 dst_pts = np.float32(board.points)
                 M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
                 triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
                 triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
-                draw_points.append([tuple(pt) for pt in triangle_pts])
-        self.draw_points = draw_points
+                
+                # 处理三角形点，插入额外点
+                refined_points = []
+                num_points = len(triangle_pts)
+                for i in range(num_points):
+                    p1 = triangle_pts[i]
+                    p2 = triangle_pts[(i + 1) % num_points]  # 下一个点，闭合循环
+                    distance = np.linalg.norm(p1 - p2)
+                    
+                    # 计算需要插入的点数
+                    if distance > 80:
+                        num_insert = int(distance // 80)  # 向下取整
+                        for j in range(num_insert + 1):  # 包含起点
+                            t = j / (num_insert + 1)  # 插值比例
+                            x = int(p1[0] + t * (p2[0] - p1[0]))
+                            y = int(p1[1] + t * (p2[1] - p1[1]))
+                            refined_points.append((x, y))
+                    else:
+                        refined_points.append(tuple(p1))
+                
+                # 添加最后一个点以确保闭合（如果没有插入点）
+                if distance <= 80 or num_insert == 0:
+                    refined_points.append(tuple(p2))
+                
+                draw_points.append(refined_points)
         
+        self.draw_points = draw_points
         return draw_points
 
     def draw(self, draw_points, lights):
@@ -136,7 +162,7 @@ class Detector:
         distance = np.linalg.norm(laser_pos - target_pos)
         
         # 判断是否重合（距离阈值设为 10 像素，可调整）
-        if distance < 10:
+        if distance < 20:
             # 激光点与目标点重合，添加到已处理列表
             self.drawn.append(tuple(target_point))
             # 递归调用以处理下一个点
@@ -174,6 +200,13 @@ class Detector:
             triangle = self.draw_points[0]  # 取第零个三角形
             pts = np.array(triangle, np.int32)
             cv2.polylines(img, [pts], True, (0, 0, 255), 2)  # 红色线条
+        
+        # 绘制待绘制点（蓝色）
+        if self.draw_points:
+            current_triangle = self.draw_points[0]
+            for point in current_triangle:
+                if tuple(point) not in self.drawn:
+                    cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 0, 0), -1)  # 蓝色
         
         # 绘制激光点（绿色）
         for light in self.lights:

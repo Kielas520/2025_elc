@@ -11,7 +11,7 @@ def nothing(x):
 
 def init_board():
     cv2.namedWindow('Camera', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Camera', 1280, 720)
+    cv2.resizeWindow('Camera', 640, 480)
     cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
     cv2.namedWindow('board', cv2.WINDOW_NORMAL)
     cv2.namedWindow('Result', cv2.WINDOW_NORMAL)

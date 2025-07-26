@@ -11,12 +11,18 @@ class Board:
         self.points = []  # 四边形角点 [左上, 左下, 右下, 右上]
 
 class Detector:
-    def __init__(self, color, light_min_area, board_min_area, bin_val):
+    def __init__(self, color, light_min_area, board_min_area, bin_val, canny_min, canny_max, kernel_x, kernel_y):
         self.bgr_upper = color[0]
         self.bgr_lower = color[1]
         self.light_min_area = light_min_area
         self.mask = None
         self.lights = []
+
+        self.canny_min = canny_min
+        self.canny_max = canny_max
+
+        self.kernel_x = kernel_x
+        self.kernel_y = kernel_y
 
         self.binary = None
         self.bin_val = bin_val
@@ -34,9 +40,23 @@ class Detector:
         mask = cv2.inRange(hsv, self.bgr_lower, self.bgr_upper)
         self.mask = mask
 
-        # 背景板检测（灰度 + Otsu）
+        # 背景板检测（Canny 边缘检测）
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, self.bin_val, 255, cv2.THRESH_BINARY)
+        # 中值模糊减少噪声
+        #gray = cv2.medianBlur(gray, 3)
+        # 阈值分割，检测黑色区域（灰度值 < 50）
+        _, binary = cv2.threshold(gray, self.canny_min, self.canny_max, cv2.THRESH_BINARY_INV)
+        kernel = (self.kernel_x, self.kernel_y)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+        # 可选：轻微模糊以减少噪声
+        # gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Canny 边缘检测
+        # edges = cv2.Canny(gray, self.canny_min, self.canny_max, apertureSize=3)
+        # 可选：膨胀操作连接断续边缘
+        #kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self.kernel_x, self.kernel_y))
+        # 腐蚀
+        #binary = cv2.erode(binary, kernel, iterations=1)
+        #binary = cv2.dilate(binary, kernel, iterations=1)
         self.binary = binary
 
         return mask, binary

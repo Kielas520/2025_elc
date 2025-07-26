@@ -48,8 +48,8 @@ class Tracker:
         if len(blobs) == 0:
             return None
         else:
-            blob = max(blobs, key=lambda blob: blob.area)
-            return blob.center
+            blob = max(blobs, key=lambda blob: blob.position)
+            return blob.position
 
     def pixel_to_yaw_pitch(self, center):
         """将像素坐标转换为偏航角和俯仰角"""
@@ -63,8 +63,7 @@ class Tracker:
 
     def track(self, point, dt=1/120):
         """跟踪目标，融合卡尔曼滤波"""
-        center = point
-        
+        center = self.select_target(point)
         if center is None:
             # 没有检测到目标
             if self.use_kf:

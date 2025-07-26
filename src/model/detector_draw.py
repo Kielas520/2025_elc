@@ -38,28 +38,27 @@ class Detector:
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.bgr_lower, self.bgr_upper)
-
+        self.mask = mask
 
         # 背景板检测（Canny 边缘检测）
-        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # 中值模糊减少噪声
         #gray = cv2.medianBlur(gray, 3)
         # 阈值分割，检测黑色区域（灰度值 < 50）
-        #_, binary = cv2.threshold(gray, self.canny_min, self.canny_max, cv2.THRESH_BINARY_INV)
-        #kernel = (self.kernel_x, self.kernel_y)
-        #binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+        _, binary = cv2.threshold(gray, self.canny_min, self.canny_max, cv2.THRESH_BINARY_INV)
+        kernel = (self.kernel_x, self.kernel_y)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
         # 可选：轻微模糊以减少噪声
         # gray = cv2.GaussianBlur(gray, (5, 5), 0)
         # Canny 边缘检测
         # edges = cv2.Canny(gray, self.canny_min, self.canny_max, apertureSize=3)
         # 可选：膨胀操作连接断续边缘
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self.kernel_x, self.kernel_y))
+        #kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self.kernel_x, self.kernel_y))
         # 腐蚀
-        mask = cv2.erode(mask, kernel, iterations=1)
-        self.mask = mask
+        #binary = cv2.erode(binary, kernel, iterations=1)
         #binary = cv2.dilate(binary, kernel, iterations=1)
-        #self.binary = binary
-        binary = None
+        self.binary = binary
+
         return mask, binary
     
     def find_board(self, binary):
@@ -196,54 +195,47 @@ class Detector:
         '''
         转换坐标原点，让原点变成图像中心位置
         '''
-        points = []
         if frame is None:
             raise ValueError("No frame available for coordinate transformation")
-        if point:
-            for poin in point:
-                height, width = frame.shape[:2]
-                (x, y) = poin.position
-                x = x - width / 2
-                y = y - height / 2
-                poin.position = (x, y)
-                points.append(poin)
-            return points
-        else:
-            return points
+        
+        height, width = frame.shape[:2]
+        center_x = point[0] - width / 2
+        center_y = point[1] - height / 2
+        return (center_x, center_y)
 
     def display(self, frame):
         img = frame.copy()  # Create a copy for drawing
         
-        # # 绘制背景板（四边形连线，绿色）
-        # for board in self.boards:
-        #     if len(board.points) == 4:
-        #         pts = np.array(board.points, np.int32)
-        #         cv2.polylines(img, [pts], True, (0, 255, 0), 2)
-        #         # 标记角点序号
-        #         for i, pt in enumerate(board.points):
-        #             cv2.putText(img, str(i), pt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        # 绘制背景板（四边形连线，绿色）
+        for board in self.boards:
+            if len(board.points) == 4:
+                pts = np.array(board.points, np.int32)
+                cv2.polylines(img, [pts], True, (0, 255, 0), 2)
+                # 标记角点序号
+                for i, pt in enumerate(board.points):
+                    cv2.putText(img, str(i), pt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
         
-        # # 绘制目标三角形（红色）
-        # if self.draw_points:
-        #     triangle = self.draw_points[0]  # 取第零个三角形
-        #     pts = np.array(triangle, np.int32)
-        #     cv2.polylines(img, [pts], True, (0, 0, 255), 2)  # 红色线条
+        # 绘制目标三角形（红色）
+        if self.draw_points:
+            triangle = self.draw_points[0]  # 取第零个三角形
+            pts = np.array(triangle, np.int32)
+            cv2.polylines(img, [pts], True, (0, 0, 255), 2)  # 红色线条
         
-        # # 绘制待绘制点（蓝色）
-        # if self.draw_points:
-        #     current_triangle = self.draw_points[0]
-        #     for point in current_triangle:
-        #         if tuple(point) not in self.drawn:
-        #             cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 0, 0), -1)  # 蓝色
+        # 绘制待绘制点（蓝色）
+        if self.draw_points:
+            current_triangle = self.draw_points[0]
+            for point in current_triangle:
+                if tuple(point) not in self.drawn:
+                    cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 0, 0), -1)  # 蓝色
         
         # 绘制激光点（绿色）
         for light in self.lights:
             if light.position:
                 cv2.circle(img, (int(light.position[0]), int(light.position[1])), 5, (0, 255, 0), -1)
         
-        # # 绘制已处理的点（白色）
-        # for point in self.drawn:
-        #     cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 255, 255), -1)
+        # 绘制已处理的点（白色）
+        for point in self.drawn:
+            cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 255, 255), -1)
         
         self.result_img = img
         return img
@@ -251,8 +243,8 @@ class Detector:
     def detect(self, frame):
         mask, binary = self.process(frame)
         lights = self.find_light(mask)
-        # boards = self.find_board(binary)
-        # draw_points = self.get_to_draw_points(boards)
-        point = lights
+        boards = self.find_board(binary)
+        draw_points = self.get_to_draw_points(boards)
+        point = self.draw(draw_points, lights)
         point = self.tf_point(point, frame)
         return point

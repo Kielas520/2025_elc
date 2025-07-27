@@ -38,13 +38,13 @@ class Detector:
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.bgr_lower, self.bgr_upper)
+        kernel = np.ones((self.kernel_x, self.kernel_y), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         self.mask = mask
 
         # 背景板检测（阈值分割）
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, self.bin_min, self.bin_max, cv2.THRESH_BINARY_INV)
-        #kernel = np.ones((self.kernel_x, self.kernel_y), np.uint8)
-        #binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
         self.binary = binary
 
         return mask, binary
@@ -87,9 +87,11 @@ class Detector:
         for contour in contours:
             area = cv2.contourArea(contour)
             if area > self.light_min_area:
-                x, y, _, _ = cv2.boundingRect(contour)
+                x, y, w, h = cv2.boundingRect(contour)
                 light = Light()
-                light.position = (x, y)
+                cx = x + w//2
+                cy = y + h //2
+                light.position = (cx, cy)
                 light.area = area
                 lights.append(light)
         
@@ -118,8 +120,8 @@ class Detector:
                 self.board_static = self.board_current
             else:
                 # 比较当前帧与上一帧的左上角坐标
-                current_top_left = np.array(self.board_current.points[0], dtype=np.float32)
-                prev_top_left = np.array(self.board_prev.points[0], dtype=np.float32)
+                current_top_left = np.array(self.board_current.points[3], dtype=np.float32)
+                prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
                 distance = np.linalg.norm(current_top_left - prev_top_left)
                 if distance < 5:
                     self.board_static = self.board_current
@@ -165,8 +167,8 @@ class Detector:
             p2 = triangle_pts[(i + 1) % num_points]
             distance = np.linalg.norm(p1 - p2)
             
-            if distance > 80:
-                num_insert = int(distance // 80)
+            if distance > 20:
+                num_insert = int(distance // 20)
                 for j in range(num_insert + 1):
                     t = j / (num_insert + 1)
                     x = int(p1[0] + t * (p2[0] - p1[0]))
@@ -204,7 +206,7 @@ class Detector:
         target_pos = np.array(light.target_point, dtype=np.float32)
         distance = np.linalg.norm(laser_pos - target_pos)
         
-        if distance < 20:
+        if distance < 5:
             board.drawn.append(tuple(light.target_point))
             return self.draw(board, light)
         

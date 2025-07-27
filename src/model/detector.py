@@ -32,7 +32,7 @@ class Detector:
         self.board_current = Board()  # 当前帧板子
         self.board_prev = Board()  # 上一帧板子
         self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
-        self.std_triangle = np.float32([[15, 2], [15, 5], [10, 15]])
+        self.std_triangle = np.float32([[15, 10], [8, 14], [8, 6]])
         self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
         self.std_insquare = np.float32([[4, 4], [4, 16], [16, 16], [16, 4]])
         self.result_img = None
@@ -50,7 +50,6 @@ class Detector:
         self.binary = binary
 
         return mask, binary
-    
     def find_board(self, binary):
         boards = []
         board_contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -62,14 +61,30 @@ class Detector:
                 approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
                 if len(approx) == 4:
                     points = approx.reshape(4, 2)
+                    
+                    # 原有排序逻辑
                     sum_xy = points.sum(axis=1)
                     diff_xy = points[:, 0] - points[:, 1]
                     sorted_points = [
                         points[np.argmin(sum_xy)],  # 左上
-                        points[np.argmax(diff_xy)],  # 左下
-                        points[np.argmax(sum_xy)],   # 右下
-                        points[np.argmin(diff_xy)]   # 右上
+                        points[np.argmax(diff_xy)], # 左下
+                        points[np.argmax(sum_xy)],  # 右下
+                        points[np.argmin(diff_xy)]  # 右上
                     ]
+                    
+                    # 检查排序后的点是否有重合
+                    unique_points = set(tuple(pt) for pt in sorted_points)
+                    
+                    if len(unique_points) < 4:
+                        # 如果有任何点重合，重新按新规则排序
+                        # 新的排序规则：左上最左，左下最上，右下最右，右上最下
+                        sorted_points = [
+                            points[np.argmin(points[:, 0])],  # 左上：最左边的x坐标
+                            points[np.argmin(points[:, 1])],  # 左下：最上面的y坐标
+                            points[np.argmax(points[:, 0])],  # 右下：最右边的x坐标
+                            points[np.argmax(points[:, 1])]   # 右上：最下面的y坐标
+                        ]
+                    
                     board = Board()
                     board.points = [tuple(pt) for pt in sorted_points]
                     board.area = area
@@ -158,7 +173,7 @@ class Detector:
         # 进行透视变换生成三角形点
         dst_pts = np.float32(board.points)
         M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_insquare.reshape(-1, 1, 2), M)
+        triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         
         # 处理三角形点，插入额外点

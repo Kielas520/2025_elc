@@ -146,15 +146,15 @@ class Detector:
             return self.board_static
 
         # 有 static 板子，比较 static 与当前帧
-        current_top_left = np.array(self.board_current.points[0], dtype=np.float32)
-        static_top_left = np.array(self.board_static.points[0], dtype=np.float32)
+        current_top_left = np.array(self.board_current.points[3], dtype=np.float32)
+        static_top_left = np.array(self.board_static.points[3], dtype=np.float32)
         distance = np.linalg.norm(current_top_left - static_top_left)
 
         # 如果稳定（距离 < 5），保持 self.board_static 不变
         if distance >= 5:
             # 如果不稳定，比较当前帧与上一帧，尝试更新 static
             if self.board_prev.points:
-                prev_top_left = np.array(self.board_prev.points[0], dtype=np.float32)
+                prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
                 distance_prev = np.linalg.norm(current_top_left - prev_top_left)
                 if distance_prev < 5:
                     self.board_static = self.board_current
@@ -174,7 +174,7 @@ class Detector:
         # 进行透视变换生成三角形点
         dst_pts = np.float32(board.points)
         M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
+        triangle_pts = cv2.perspectiveTransform(self.std_circle.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         
         # 处理三角形点，插入额外点
@@ -195,7 +195,7 @@ class Detector:
             else:
                 refined_points.append(tuple(p1))
         
-        if distance <= 80 or num_insert == 0:
+        if distance <= 20 or num_insert == 0:
             refined_points.append(tuple(p2))
         
         draw_points.append(refined_points)

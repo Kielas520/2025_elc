@@ -74,7 +74,7 @@ def main():
         
         position = detector.detect(frame)
         yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
-        #print(yaw,pitch)
+        print(yaw,pitch)
         result = detector.display(frame)
         # serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
         cv2.imshow('Camera', frame)

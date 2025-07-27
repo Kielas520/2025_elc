@@ -78,7 +78,7 @@ def main():
         result = detector.display(frame)
         serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
         # cv2.imshow('Camera', frame)
-        # cv2.imshow('Mask', detector.mask)
+        cv2.imshow('Mask', detector.mask)
         # cv2.imshow('board', detector.binary)
         cv2.imshow('Result', result)
 

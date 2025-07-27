@@ -174,7 +174,7 @@ class Detector:
         # 进行透视变换生成三角形点
         dst_pts = np.float32(board.points)
         M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_circle.reshape(-1, 1, 2), M)
+        triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         
         # 处理三角形点，插入额外点

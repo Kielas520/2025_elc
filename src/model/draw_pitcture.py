@@ -4,6 +4,7 @@ import cv2
 # 定义方形和三角形的坐标点
 std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])  # 方形四个顶点
 std_triangle = np.float32([[5, 2], [15, 5], [10, 15]])  # 三角形三个顶点
+std_star = np.float32([[10, 3], [13, 8], [19, 8], [13, 12], [17, 16], [10, 13], [3, 16], [7, 12], [1, 8], [7, 8]])
 
 # 生成圆形的坐标点（中心(10, 10)，半径8）
 theta = np.linspace(0, 2 * np.pi, 15)  # 生成15个角度，0到2π
@@ -22,6 +23,7 @@ img = np.ones((21, 21, 3), dtype=np.uint8) * 255
 square_points = np.int32(std_square)
 triangle_points = np.int32(std_triangle)
 circle_points = np.int32(circle_points)
+star_points = np.int32(std_star)
 
 # 绘制蓝色方形像素点 (BGR: 255, 0, 0)
 for point in square_points:
@@ -38,8 +40,16 @@ for point in circle_points:
     x, y = point
     img[y, x] = (0, 255, 0)  # 在(x, y)处绘制绿色像素
 
+# 绘制绿色圆形像素点 (BGR: 0, 255, 0)
+for point in star_points:
+    x, y = point
+    img[y, x] = (0, 0, 0)  # 在(x, y)处绘制绿色像素
+
 # 显示图像
 cv2.imshow('像素点', img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+
+cv2.imwrite('pixels.png', img)
 

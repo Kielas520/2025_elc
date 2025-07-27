@@ -68,13 +68,13 @@ class Detector:
 
     def display(self, frame):
         img = frame.copy()  # Create a copy for drawing
-        
+        height, width = frame.shape[:2]
         # 绘制激光点（绿色）
         for light in self.lights:
             if light.position:
 
-                abs_x = int(light.position[0] + img.width / 2)
-                abs_y = int(light.position[1] + img.height / 2)
+                abs_x = int(light.position[0] + width / 2)
+                abs_y = int(light.position[1] + height / 2)
                 
                 cv2.circle(img, (abs_x, abs_y), 5, (0, 255, 0), -1)
         

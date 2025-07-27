@@ -12,7 +12,7 @@ def nothing(x):
 def init_board():
     #cv2.namedWindow('Camera', cv2.WINDOW_NORMAL)
     #cv2.resizeWindow('Camera', 640, 480)
-    cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
+    #cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
     #cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
     # Create trackbars for HSV thresholds (initial values for light yellow)
     cv2.namedWindow('Controls')
@@ -64,9 +64,9 @@ def main():
         yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
         #print(yaw)
         result = detector.display(frame)
-        serial.send_data(-yaw * 0.6, -pitch * 0.6)
+        #serial.send_data(-yaw * 0.6, -pitch * 0.6)
         #cv2.imshow('Camera', frame)
-        cv2.imshow('Mask', detector.mask)
+        #cv2.imshow('Mask', detector.mask)
         #cv2.imshow('Result', result)
 
         # 计算 FPS
@@ -83,8 +83,8 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=120)
-detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, kernel_x = 3, kernel_y = 3)
+cam = camera.Camera(index=32, format='MJPG', width=640, height=480, fps=120)
+detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5000, kernel_x = 3, kernel_y = 3)
 tracker = Tracker.Tracker(frame_add = 1)
 serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
 main()

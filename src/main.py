@@ -96,7 +96,7 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
+cam = camera.Camera(index=3, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, board_min_area=81000, bin_min = 50, bin_max = 150, kernel_x = 3, kernel_y = 3)
 tracker = Tracker.Tracker(frame_add = 5, vfov = 120)
 # serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)

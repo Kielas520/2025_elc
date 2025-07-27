@@ -32,7 +32,9 @@ class Detector:
         self.board_current = Board()  # 当前帧板子
         self.board_prev = Board()  # 上一帧板子
         self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
-        self.std_triangle = np.float32([[5, 2], [15, 5], [10, 15]])
+        self.std_triangle = np.float32([[15, 2], [15, 5], [10, 15]])
+        self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
+        self.std_insquare = np.float32([[4, 4], [4, 16], [16, 16], [16, 4]])
         self.result_img = None
     
     def process(self, frame):
@@ -156,7 +158,7 @@ class Detector:
         # 进行透视变换生成三角形点
         dst_pts = np.float32(board.points)
         M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_triangle.reshape(-1, 1, 2), M)
+        triangle_pts = cv2.perspectiveTransform(self.std_insquare.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         
         # 处理三角形点，插入额外点

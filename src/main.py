@@ -10,11 +10,11 @@ def nothing(x):
     pass
 
 def init_board():
-    #cv2.namedWindow('Camera', cv2.WINDOW_NORMAL)
-    #cv2.resizeWindow('Camera', 640, 480)
-    #cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
-    #cv2.namedWindow('board', cv2.WINDOW_NORMAL)
-    #cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Camera', cv2.WINDOW_NORMAL)
+    # cv2.resizeWindow('Camera', 640, 480)
+    cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('board', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
     # Create trackbars for HSV thresholds (initial values for light yellow)
     cv2.namedWindow('Controls')
     cv2.createTrackbar('H Min', 'Controls', 157, 179, nothing)  # Hue min (yellow ~20-30)
@@ -75,12 +75,12 @@ def main():
         position = detector.detect(frame)
         yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
         #print(yaw,pitch)
-        #result = detector.display(frame)
-        serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
-        #cv2.imshow('Camera', frame)
-        #cv2.imshow('Mask', detector.mask)
-        #cv2.imshow('board', detector.binary)
-        #cv2.imshow('Result', result)
+        result = detector.display(frame)
+        # serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
+        cv2.imshow('Camera', frame)
+        cv2.imshow('Mask', detector.mask)
+        cv2.imshow('board', detector.binary)
+        cv2.imshow('Result', result)
 
         # 计算 FPS
         current_time = time.time()
@@ -96,8 +96,8 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=120)
+cam = camera.Camera(index=4, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, board_min_area=81000, bin_min = 50, bin_max = 150, kernel_x = 3, kernel_y = 3)
 tracker = Tracker.Tracker(frame_add = 5, vfov = 120)
-serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
+# serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
 main()

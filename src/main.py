@@ -25,9 +25,8 @@ def init_board():
     cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing) # Value max
     cv2.createTrackbar('light_area', 'Controls', 5, 200, nothing)
     cv2.createTrackbar('board_min_area', 'Controls', 81000, 200000, nothing)
-    cv2.createTrackbar('bin_thresh', 'Controls', 50, 255, nothing)
-    cv2.createTrackbar('canny_min', 'Controls', 50, 255, nothing)
-    cv2.createTrackbar('canny_max', 'Controls', 150, 255, nothing)
+    cv2.createTrackbar('bin_min', 'Controls', 50, 255, nothing)
+    cv2.createTrackbar('bin_max', 'Controls', 150, 255, nothing)
     cv2.createTrackbar('kernel_x', 'Controls', 3, 10, nothing)
     cv2.createTrackbar('kernel_y', 'Controls', 3, 10, nothing)
 
@@ -41,9 +40,8 @@ def update_hsv():
     v_max = cv2.getTrackbarPos('V Max', 'Controls')
     light_area = cv2.getTrackbarPos('light_area', 'Controls')
     board_min_area = cv2.getTrackbarPos('board_min_area', 'Controls')
-    bin_thresh = cv2.getTrackbarPos('bin_thresh', 'Controls')
-    canny_min = cv2.getTrackbarPos('canny_min', 'Controls')
-    canny_max = cv2.getTrackbarPos('canny_max', 'Controls')
+    bin_min = cv2.getTrackbarPos('bin_min', 'Controls')
+    bin_max = cv2.getTrackbarPos('bin_max', 'Controls')
     kernel_x = cv2.getTrackbarPos('kernel_x', 'Controls')
     kernel_y = cv2.getTrackbarPos('kernel_y', 'Controls')
     # Create HSV threshold range
@@ -51,9 +49,8 @@ def update_hsv():
     detector.bgr_upper = (h_max, s_max, v_max)
     detector.light_min_area = light_area
     detector.board_min_area = board_min_area
-    detector.bin_val = bin_thresh
-    detector.canny_min = canny_min
-    detector.canny_max = canny_max
+    detector.bin_min = bin_min
+    detector.bin_max = bin_max
     detector.kernel_x = kernel_x
     detector.kernel_y = kernel_y
 
@@ -98,7 +95,7 @@ def main():
     cv2.destroyAllWindows()
 
 cam = camera.Camera(index=4, format='MJPG', width=640, height=480, fps=120)
-detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, board_min_area=81000, bin_val=200, canny_min = 50, canny_max = 150, kernel_x = 3, kernel_y = 3)
+detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, board_min_area=81000,bin_min = 50, bin_max = 150, kernel_x = 3, kernel_y = 3)
 tracker = Tracker.Tracker(frame_add = 5)
 # serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
 main()

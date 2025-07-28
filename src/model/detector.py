@@ -16,7 +16,7 @@ class Board:
         
 
 class Detector:
-    def __init__(self, color, light_min_area, board_min_area, bin_min, bin_max, kernel_x, kernel_y):
+    def __init__(self, color, light_min_area, board_min_area, bin_min, bin_max, kernel_x, kernel_y, shrink_distance = 25):
         self.bgr_upper = color[0]
         self.bgr_lower = color[1]
         self.light_min_area = light_min_area
@@ -27,6 +27,8 @@ class Detector:
         self.kernel_x = kernel_x
         self.kernel_y = kernel_y
         self.binary = None
+        self.shrink_distance = shrink_distance
+        self.board_img = None  # 或初始化为空图像
         self.board_min_area = board_min_area
         self.board = None
         self.board_static = Board()  # 初始化为空 Board 对象
@@ -130,19 +132,22 @@ class Detector:
         """
         # 如果当前板子无效，直接返回当前 static 板子
         if not self.board_current.points:
+            self.board_img = None
             return self.board_static
 
         # 如果没有 static 板子，比较当前帧与上一帧
         if not self.board_static.points:
             if not self.board_prev.points:
+                self.board_img = self.get_shape(self.board_current)
                 # 上一帧也为空，将当前板子设为 static
                 self.board_static = self.board_current
             else:
-                # 比较当前帧与上一帧的左上角坐标
-                current_top_left = np.array(self.board_current.points[3], dtype=np.float32)
-                prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
-                distance = np.linalg.norm(current_top_left - prev_top_left)
+                # 比较当前帧与上一帧的坐标
+                current_point = np.array(self.board_current.points[3], dtype=np.float32)
+                prev_point = np.array(self.board_prev.points[3], dtype=np.float32)
+                distance = np.linalg.norm(current_point - prev_point)
                 if distance < 5:
+                    self.board_img = self.get_shape(self.board_current)
                     self.board_static = self.board_current
             return self.board_static
 
@@ -158,9 +163,55 @@ class Detector:
                 prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
                 distance_prev = np.linalg.norm(current_top_left - prev_top_left)
                 if distance_prev < 5:
+                    self.board_img = self.get_shape(self.board_current)
                     self.board_static = self.board_current
 
         return self.board_static
+
+    def get_shape(self, board):
+        # 将board.points转换为numpy数组
+        src_pts = np.float32(board.points)
+        # 向内缩小四边形5像素
+        shrunk_pts = []
+        num_points = len(src_pts)
+        
+        for i in range(num_points):
+            # 获取当前点和相邻点
+            p = src_pts[i]
+            prev_p = src_pts[(i - 1) % num_points]
+            next_p = src_pts[(i + 1) % num_points]
+            
+            # 计算两条边的向量
+            vec1 = p - prev_p  # 从前一个点到当前点
+            vec2 = next_p - p  # 从当前点到下一个点
+            
+            # 计算法向量（逆时针旋转90度）
+            normal1 = np.array([-vec1[1], vec1[0]])
+            normal2 = np.array([-vec2[1], vec2[0]])
+            
+            # 归一化法向量
+            normal1 = normal1 / (np.linalg.norm(normal1) + 1e-6)
+            normal2 = normal2 / (np.linalg.norm(normal2) + 1e-6)
+            
+            # 计算平均内向法向量
+            avg_normal = (normal1 + normal2) / 2
+            avg_normal = avg_normal / (np.linalg.norm(avg_normal) + 1e-6)
+            
+            # 向内移动点
+            shrunk_point = p + avg_normal * self.shrink_distance
+            shrunk_pts.append(shrunk_point)
+        
+        # 将缩小的点转换为numpy数组
+        src_pts = np.float32(shrunk_pts)
+        # 定义目标矩形（输出ROI的大小，可以自定义）
+        roi_width, roi_height = 50, 50  # 可根据需求调整
+        dst_pts = np.float32([[0, 0], [roi_width, 0], [roi_width, roi_height], [0, roi_height]])
+        # 计算透视变换矩阵（从目标矩形到四边形）
+        M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+        # 应用透视变换到self.binary，提取四边形ROI并变换为矩形
+        board_img = cv2.warpPerspective(self.binary, M, (roi_width, roi_height))
+        # 存储变换后的图像到self.board_img
+        return board_img
 
     def get_to_draw_points(self, board):
         """
@@ -172,9 +223,9 @@ class Detector:
             board.draw_points = []
             return board
         
-        # 进行透视变换生成三角形点
-        dst_pts = np.float32(board.points)
-        M = cv2.getPerspectiveTransform(self.std_square, dst_pts)
+        # 将board.points转换为numpy数组
+        src_pts = np.float32(board.points)
+        M = cv2.getPerspectiveTransform(self.std_square, src_pts)
         triangle_pts = cv2.perspectiveTransform(self.std_star.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         

@@ -17,6 +17,7 @@ def init_board():
     # cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
     # Create trackbars for HSV thresholds (initial values for light yellow)
     cv2.namedWindow('Controls')
+    cv2.resizeWindow('Controls', 800, 600)  # 增大窗口尺寸
     cv2.createTrackbar('H Min', 'Controls', 133, 179, nothing)  # Hue min (yellow ~20-30)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)  # Hue max
     cv2.createTrackbar('S Min', 'Controls', 255, 255, nothing) # Saturation min
@@ -29,6 +30,7 @@ def init_board():
     cv2.createTrackbar('bin_max', 'Controls', 255, 255, nothing)
     cv2.createTrackbar('kernel_x', 'Controls', 3, 10, nothing)
     cv2.createTrackbar('kernel_y', 'Controls', 3, 10, nothing)
+    cv2.createTrackbar('shrink', 'Controls', 15, 100, nothing)
 
 def update_hsv():
     # Get trackbar positions
@@ -44,6 +46,7 @@ def update_hsv():
     bin_max = cv2.getTrackbarPos('bin_max', 'Controls')
     kernel_x = cv2.getTrackbarPos('kernel_x', 'Controls')
     kernel_y = cv2.getTrackbarPos('kernel_y', 'Controls')
+    shrink = cv2.getTrackbarPos('shrink', 'Controls')
 
     # Create HSV threshold range
     detector.bgr_lower = (h_min, s_min, v_min)
@@ -54,6 +57,7 @@ def update_hsv():
     detector.bin_max = bin_max
     detector.kernel_x = kernel_x
     detector.kernel_y = kernel_y
+    detector.shrink_distance = shrink
 
 
 def main():
@@ -74,9 +78,11 @@ def main():
         
         position = detector.detect(frame)
         yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
-        print(yaw,pitch)
+        #print(yaw,pitch)
         result = detector.display(frame)
-        serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
+        #serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
+        if detector.board_img is not None:
+            cv2.imshow('img',detector.board_img)
         # cv2.imshow('Camera', frame)
         cv2.imshow('Mask', detector.mask)
         # cv2.imshow('board', detector.binary)
@@ -96,8 +102,24 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
-detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)], light_min_area=5, board_min_area=81000, bin_min = 50, bin_max = 150, kernel_x = 3, kernel_y = 3)
-tracker = Tracker.Tracker(frame_add = 5, vfov = 120)
-serial = Serial.Serial(port='/dev/ttyS1', baudrate=115200, timeout=1, write_timeout=1)
+cam = camera.Camera(index=4
+                    , format='MJPG'
+                    , width=640
+                    , height=480
+                    , fps=240)
+
+detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
+                             , light_min_area=5, board_min_area=81000
+                             , bin_min = 50, bin_max = 150
+                             , kernel_x = 3
+                             , kernel_y = 3
+                             , shrink_distance = 15)
+
+tracker = Tracker.Tracker(frame_add = 5
+                          , vfov = 120)
+
+#serial = Serial.Serial(port='/dev/ttyS1'
+# , baudrate=115200
+# , timeout=1
+# , write_timeout=1)
 main()

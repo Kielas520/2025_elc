@@ -1,16 +1,19 @@
 import cv2
 import numpy as np
-import cam as camera
-
-# Initialize camera
-cam = camera.Camera(index=4, format='MJPG', width=1280, height=720, fps=120)
 
 # Callback function for trackbars (empty since we get values directly)
 def nothing(x):
     pass
 
 def main():
-    if not cam.cam.isOpened():
+    # Initialize camera with OpenCV
+    cap = cv2.VideoCapture(4)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FPS, 120)
+
+    if not cap.isOpened():
         print("Camera open failed")
         return
 
@@ -30,7 +33,7 @@ def main():
     cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing) # Value max
 
     while True:
-        ret, frame = cam.cam.read()
+        ret, frame = cap.read()
         if not ret:
             print("Failed to grab frame")
             break
@@ -66,7 +69,7 @@ def main():
             break
 
     # Cleanup
-    cam.cam.release()
+    cap.release()
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':

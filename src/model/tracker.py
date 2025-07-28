@@ -7,11 +7,9 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width=1920, vfov=80, use_kf=True, frame_add=35):
+    def __init__(self, img_width=1920, vfov=80):
         self.img_width = img_width
         self.vfov = vfov
-        self.use_kf = use_kf  # 保留未使用的参数以兼容现有代码
-        self.frame_add = frame_add  # 保留未使用的参数
 
     def tf(self, light):
         '''

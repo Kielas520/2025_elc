@@ -25,12 +25,15 @@ def init_board():
     cv2.createTrackbar('V Min', 'Controls', 6, 255, nothing) # Value min
     cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing) # Value max
     cv2.createTrackbar('light_area', 'Controls', 5, 200, nothing)
-    cv2.createTrackbar('board_min_area', 'Controls', 18310, 200000, nothing)
+    cv2.createTrackbar('board_min_area', 'Controls', 18310, 307200, nothing)
+    cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
     cv2.createTrackbar('bin_min', 'Controls', 9, 255, nothing)
     cv2.createTrackbar('bin_max', 'Controls', 255, 255, nothing)
     cv2.createTrackbar('kernel_x', 'Controls', 3, 10, nothing)
     cv2.createTrackbar('kernel_y', 'Controls', 3, 10, nothing)
     cv2.createTrackbar('shrink', 'Controls', 15, 100, nothing)
+    cv2.createTrackbar('min_pic_area', 'Controls', 150, 2450, nothing)
+    cv2.createTrackbar('max_pic_area', 'Controls', 2300, 2450, nothing)
 
 def update_hsv():
     # Get trackbar positions
@@ -42,22 +45,28 @@ def update_hsv():
     v_max = cv2.getTrackbarPos('V Max', 'Controls')
     light_area = cv2.getTrackbarPos('light_area', 'Controls')
     board_min_area = cv2.getTrackbarPos('board_min_area', 'Controls')
+    board_max_area = cv2.getTrackbarPos('board_max_area', 'Controls')
     bin_min = cv2.getTrackbarPos('bin_min', 'Controls')
     bin_max = cv2.getTrackbarPos('bin_max', 'Controls')
     kernel_x = cv2.getTrackbarPos('kernel_x', 'Controls')
     kernel_y = cv2.getTrackbarPos('kernel_y', 'Controls')
     shrink = cv2.getTrackbarPos('shrink', 'Controls')
+    min_pic_area = cv2.getTrackbarPos('min_pic_area', 'Controls')
+    max_pic_area = cv2.getTrackbarPos('max_pic_area', 'Controls')
 
     # Create HSV threshold range
     detector.bgr_lower = (h_min, s_min, v_min)
     detector.bgr_upper = (h_max, s_max, v_max)
     detector.light_min_area = light_area
     detector.board_min_area = board_min_area
+    detector.board_max_area = board_max_area
     detector.bin_min = bin_min
     detector.bin_max = bin_max
     detector.kernel_x = kernel_x
     detector.kernel_y = kernel_y
     detector.shrink_distance = shrink
+    detector.min_pic_area = min_pic_area
+    detector.max_pic_area = max_pic_area
 
 
 def main():
@@ -85,6 +94,7 @@ def main():
             cv2.imshow('img',detector.board_img)
         # cv2.imshow('Camera', frame)
         cv2.imshow('Mask', detector.mask)
+        cv2.imshow('Binary', detector.binary)
         # cv2.imshow('board', detector.binary)
         cv2.imshow('Result', result)
 
@@ -96,7 +106,7 @@ def main():
             fps = frame_count / elapsed_time
             frame_count = 0
             last_time = current_time
-            print(f"FPS: {fps:.2f}")  # 打印 FPS，保留两位小数
+            #print(f"FPS: {fps:.2f}")  # 打印 FPS，保留两位小数
 
         if cv2.waitKey(1) == ord('q'):
             break
@@ -109,14 +119,17 @@ cam = camera.Camera(index=4
                     , fps=240)
 
 detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
-                             , light_min_area=5, board_min_area=81000
+                             , light_min_area = 5
+                             , board_min_area = 18310
+                             , board_max_area = 50000
                              , bin_min = 50, bin_max = 150
                              , kernel_x = 3
                              , kernel_y = 3
-                             , shrink_distance = 15)
+                             , shrink_distance = 15
+                             , min_pic_area = 150
+                             , max_pic_area = 2300)
 
-tracker = Tracker.Tracker(frame_add = 5
-                          , vfov = 120)
+tracker = Tracker.Tracker(vfov = 120)
 
 #serial = Serial.Serial(port='/dev/ttyS1'
 # , baudrate=115200

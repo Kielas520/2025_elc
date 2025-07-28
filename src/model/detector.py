@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from model.template import ORBMatcher
 
 class Light:
     def __init__(self):
@@ -16,12 +17,20 @@ class Board:
         
 
 class Detector:
-    def __init__(self, color, light_min_area, board_min_area, bin_min, bin_max, kernel_x, kernel_y, shrink_distance = 25):
+    def __init__(self, color, light_min_area, board_min_area, board_max_area, bin_min, bin_max, kernel_x, kernel_y, shrink_distance = 25, min_pic_area = 150, max_pic_area = 2300):
+        self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
+        self.std_triangle = np.float32([[15, 10], [8, 14], [8, 6]])
+        self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
+        self.std_insquare = np.float32([[4, 4], [4, 16], [16, 16], [16, 4]])
+        self.std_star = np.float32([[10, 3], [13, 8], [19, 8], [13, 12], [17, 16], [10, 13], [3, 16], [7, 12], [1, 8], [7, 8]])
+
+        
         self.bgr_upper = color[0]
         self.bgr_lower = color[1]
         self.light_min_area = light_min_area
         self.mask = None
         self.light = None
+        
         self.bin_min = bin_min
         self.bin_max = bin_max
         self.kernel_x = kernel_x
@@ -30,17 +39,27 @@ class Detector:
         self.shrink_distance = shrink_distance
         self.board_img = None  # 或初始化为空图像
         self.board_min_area = board_min_area
+        self.board_max_area = board_max_area
+        
+        # 定义面积上下阈值
+        self.min_pic_area = min_pic_area  # 最小面积阈值
+        self.max_pic_area = max_pic_area  # 最大面积阈值，可根据需要调整
+
         self.board = None
+        self.board_shape = self.std_star
+        
         self.board_static = Board()  # 初始化为空 Board 对象
         self.board_current = Board()  # 当前帧板子
         self.board_prev = Board()  # 上一帧板子
-        self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
-        self.std_triangle = np.float32([[15, 10], [8, 14], [8, 6]])
-        self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
-        self.std_insquare = np.float32([[4, 4], [4, 16], [16, 16], [16, 4]])
-        self.std_star = np.float32([[10, 3], [13, 8], [19, 8], [13, 12], [17, 16], [10, 13], [3, 16], [7, 12], [1, 8], [7, 8]])
+        
         self.result_img = None
-    
+        self.sift_matcher = ORBMatcher(min_match_count=5, ratio_thresh=0.75)
+        # 添加多个模板
+        self.sift_matcher.add_template("triangle", "src/pic/tri.jpg")
+        self.sift_matcher.add_template("rectangle", "src/pic/rect.jpg")
+        self.sift_matcher.add_template("circle", "src/pic/circle.jpg")
+        self.sift_matcher.add_template("None", "src/pic/board.jpg")
+
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.bgr_lower, self.bgr_upper)
@@ -54,13 +73,14 @@ class Detector:
         self.binary = binary
 
         return mask, binary
+
     def find_board(self, binary):
         boards = []
         board_contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         for contour in board_contours:
             area = cv2.contourArea(contour)
-            if area > self.board_min_area:
+            if area > self.board_min_area and area < self.board_max_area:
                 peri = cv2.arcLength(contour, True)
                 approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
                 if len(approx) == 4:
@@ -138,7 +158,7 @@ class Detector:
         # 如果没有 static 板子，比较当前帧与上一帧
         if not self.board_static.points:
             if not self.board_prev.points:
-                self.board_img = self.get_shape(self.board_current)
+                self.board_img = self.get_board_img(self.board_current)
                 # 上一帧也为空，将当前板子设为 static
                 self.board_static = self.board_current
             else:
@@ -147,7 +167,7 @@ class Detector:
                 prev_point = np.array(self.board_prev.points[3], dtype=np.float32)
                 distance = np.linalg.norm(current_point - prev_point)
                 if distance < 5:
-                    self.board_img = self.get_shape(self.board_current)
+                    self.board_img = self.get_board_img(self.board_current)
                     self.board_static = self.board_current
             return self.board_static
 
@@ -163,12 +183,12 @@ class Detector:
                 prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
                 distance_prev = np.linalg.norm(current_top_left - prev_top_left)
                 if distance_prev < 5:
-                    self.board_img = self.get_shape(self.board_current)
+                    self.board_img = self.get_board_img(self.board_current)
                     self.board_static = self.board_current
 
         return self.board_static
 
-    def get_shape(self, board):
+    def get_board_img(self, board):
         # 将board.points转换为numpy数组
         src_pts = np.float32(board.points)
         # 向内缩小四边形5像素
@@ -210,14 +230,33 @@ class Detector:
         M = cv2.getPerspectiveTransform(src_pts, dst_pts)
         # 应用透视变换到self.binary，提取四边形ROI并变换为矩形
         board_img = cv2.warpPerspective(self.binary, M, (roi_width, roi_height))
-        # 存储变换后的图像到self.board_img
+        
+        self.get_shape(board_img)
         return board_img
+
+    def get_shape(self, board_img):
+        # 执行匹配
+        result = self.sift_matcher.match(board_img, show_result=False)
+        if result:
+            sides = result['name']
+            if sides == 'triangle':
+                self.board_shape = self.std_triangle
+
+            elif sides == 'rectangle':
+                self.board_shape = self.std_insquare
+
+            elif sides == 'circle':
+                self.board_shape = self.std_circle
+
+            elif sides == 'None':
+                pass
 
     def get_to_draw_points(self, board):
         """
         计算并存储板的变换后三角形坐标。
         如果 board 无效，返回空 Board。
         """
+            
         draw_points = []
         if not board or len(board.points) != 4:
             board.draw_points = []
@@ -226,7 +265,7 @@ class Detector:
         # 将board.points转换为numpy数组
         src_pts = np.float32(board.points)
         M = cv2.getPerspectiveTransform(self.std_square, src_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_star.reshape(-1, 1, 2), M)
+        triangle_pts = cv2.perspectiveTransform(self.board_shape.reshape(-1, 1, 2), M)
         triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
         
         # 处理三角形点，插入额外点

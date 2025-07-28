@@ -112,7 +112,7 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=4
+cam = camera.Camera(index=0
                     , format='MJPG'
                     , width=640
                     , height=480

@@ -24,7 +24,6 @@ class Detector:
         self.std_insquare = np.float32([[4, 4], [4, 16], [16, 16], [16, 4]])
         self.std_star = np.float32([[10, 3], [13, 8], [19, 8], [13, 12], [17, 16], [10, 13], [3, 16], [7, 12], [1, 8], [7, 8]])
 
-        
         self.bgr_upper = color[0]
         self.bgr_lower = color[1]
         self.light_min_area = light_min_area

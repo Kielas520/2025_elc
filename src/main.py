@@ -106,7 +106,7 @@ def main():
             fps = frame_count / elapsed_time
             frame_count = 0
             last_time = current_time
-            #print(f"FPS: {fps:.2f}")  # 打印 FPS，保留两位小数
+            print(f"FPS: {fps:.2f}")  # 打印 FPS，保留两位小数
 
         if cv2.waitKey(1) == ord('q'):
             break

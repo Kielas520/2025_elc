@@ -7,9 +7,11 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width = 640, vfov=100):
+    def __init__(self, img_width = 640, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03):
         self.img_width = img_width
         self.vfov = vfov
+        self.yaw_pid = yaw_pid
+        self.pitch_pid = pitch_pid
 
     def tf(self, light):
         '''
@@ -34,8 +36,7 @@ class Tracker:
     def track(self, light):
         """跟踪目标"""
         if light is None:
-            return (0, 0)  # 如果 light 为 None，返回默认角度
-        
+            return None, None  # 如果 light 为 None，返回默认角度
         target = self.tf(light)
         yaw, pitch = self.pixel_to_yaw_pitch(target)
         return yaw, pitch

@@ -45,7 +45,8 @@ def init_board():
     cv2.createTrackbar('min_pic_area', 'Controls', 150, 2450, nothing)
     cv2.createTrackbar('max_pic_area', 'Controls', 2300, 2450, nothing)
     cv2.createTrackbar('separate', 'Controls', 5, 80, nothing)
-
+    cv2.createTrackbar('yaw_pid', 'Controls', 3, 100, nothing)
+    cv2.createTrackbar('pitch_pid', 'Controls', 3, 100, nothing)
 def update_hsv():
     # Get trackbar positions
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -65,6 +66,8 @@ def update_hsv():
     min_pic_area = cv2.getTrackbarPos('min_pic_area', 'Controls')
     max_pic_area = cv2.getTrackbarPos('max_pic_area', 'Controls')
     separate = cv2.getTrackbarPos('separate', 'Controls')
+    yaw_pid = cv2.getTrackbarPos('yaw_pid', 'Controls')
+    pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
 
     # Create HSV threshold range
     detector.bgr_lower = (h_min, s_min, v_min)
@@ -79,6 +82,9 @@ def update_hsv():
     detector.shrink_distance = shrink
     detector.min_pic_area = min_pic_area
     detector.max_pic_area = max_pic_area
+    tracker.yaw_pid = yaw_pid / 100
+    tracker.pitch_pid = pitch_pid / 100
+
     if separate == 0:
         detector.separate = 1
     else:
@@ -105,7 +111,7 @@ def main():
         yaw, pitch = tracker.track(position)  # 传递 dt 参数给 tracker
         # print(yaw,pitch)
         result = detector.display(frame)
-        serial.send_data(yaw = -yaw * 0.03, pitch = pitch * 0.03, control_id = 0x00)
+        serial.send_data(yaw, pitch)
         if detector.board_img is not None:
             cv2.imshow('board',detector.board_img)
         cv2.imshow('Mask', detector.mask)

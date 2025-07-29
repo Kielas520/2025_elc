@@ -29,7 +29,7 @@ class Serial:
             time.sleep(1)
             self.open_port()
 
-    def send_data(self, yaw=0.0, pitch=0.0, control_id = 0x00):
+    def send_data(self, yaw = None, pitch = None):
         """
         发送 float 类型的 yaw 和 pitch（各 4 字节）
         1 - > angle mode
@@ -39,7 +39,13 @@ class Serial:
             if not self.ser or not self.ser.is_open:
                 self.reopen_port()
                 return
-
+            if yaw is None or pitch is None:
+                control_id = 0x01
+                yaw = 0
+                pitch = 0
+            else:
+                control_id = 0x00
+            
             # 协议帧结构
             header_1 = 0xAA
             header_2 = 0x55

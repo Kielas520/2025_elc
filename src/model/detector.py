@@ -275,8 +275,8 @@ class Detector:
             p2 = triangle_pts[(i + 1) % num_points]
             distance = np.linalg.norm(p1 - p2)
             
-            if distance > 20:
-                num_insert = int(distance // 20)
+            if distance > 10:
+                num_insert = int(distance // 10)
                 for j in range(num_insert + 1):
                     t = j / (num_insert + 1)
                     x = int(p1[0] + t * (p2[0] - p1[0]))
@@ -285,7 +285,7 @@ class Detector:
             else:
                 refined_points.append(tuple(p1))
         
-        if distance <= 20 or num_insert == 0:
+        if distance <= 5 or num_insert == 0:
             refined_points.append(tuple(p2))
         
         draw_points.append(refined_points)

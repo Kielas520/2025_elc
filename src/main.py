@@ -10,14 +10,24 @@ def nothing(x):
     pass
 
 def init_board():
-    # cv2.namedWindow('Camera', cv2.WINDOW_NORMAL)
-    # # cv2.resizeWindow('Camera', 640, 480)
-    # cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
-    # cv2.namedWindow('board', cv2.WINDOW_NORMAL)
-    # cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Result', cv2.WINDOW_FREERATIO)
+    cv2.namedWindow('Mask', cv2.WINDOW_FREERATIO)
+    cv2.namedWindow('board', cv2.WINDOW_FREERATIO)
+    cv2.namedWindow('binary', cv2.WINDOW_FREERATIO)
+    cv2.moveWindow('Mask', 360, 180)
+    cv2.moveWindow('binary', 360, 0)
+    cv2.moveWindow('Result', 540, 180)
+    cv2.moveWindow('board', 540, 0)
+
+    cv2.resizeWindow('Mask', 170, 150)
+    cv2.resizeWindow('binary', 170, 150)
+    cv2.resizeWindow('Result', 170,150)
+    cv2.resizeWindow('board', 170, 150)
+
     # Create trackbars for HSV thresholds (initial values for light yellow)
-    cv2.namedWindow('Controls')
-    cv2.resizeWindow('Controls', 800, 600)  # 增大窗口尺寸
+    cv2.namedWindow('Controls', cv2.WINDOW_FREERATIO)
+    cv2.moveWindow('Controls', 0, 0)
+    cv2.resizeWindow('Controls', 320, 400)  # 增大窗口尺寸
     cv2.createTrackbar('H Min', 'Controls', 133, 179, nothing)  # Hue min (yellow ~20-30)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)  # Hue max
     cv2.createTrackbar('S Min', 'Controls', 255, 255, nothing) # Saturation min
@@ -89,13 +99,11 @@ def main():
         yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
         #print(yaw,pitch)
         result = detector.display(frame)
-        #serial.send_data(yaw = -yaw * 0.07, pitch = -pitch * 0.07)
+        serial.send_data(yaw = -yaw * 0.05, pitch = pitch * 0.05)
         if detector.board_img is not None:
-            cv2.imshow('img',detector.board_img)
-        # cv2.imshow('Camera', frame)
+            cv2.imshow('board',detector.board_img)
         cv2.imshow('Mask', detector.mask)
-        cv2.imshow('Binary', detector.binary)
-        # cv2.imshow('board', detector.binary)
+        cv2.imshow('binary', detector.binary)
         cv2.imshow('Result', result)
 
         # 计算 FPS
@@ -131,8 +139,8 @@ detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
 
 tracker = Tracker.Tracker(vfov = 120)
 
-#serial = Serial.Serial(port='/dev/ttyS1'
-# , baudrate=115200
-# , timeout=1
-# , write_timeout=1)
+serial = Serial.Serial(port='/dev/ttyS1'
+, baudrate=115200
+, timeout=1
+, write_timeout=1)
 main()

@@ -7,7 +7,7 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width=1920, vfov=80):
+    def __init__(self, img_width = 640, vfov=100):
         self.img_width = img_width
         self.vfov = vfov
 
@@ -31,8 +31,8 @@ class Tracker:
         pitch = math.atan(center[1] / focal_pixel_distance) * RAD2DEG
         return yaw, pitch
 
-    def track(self, light, dt=1/120):
-        """跟踪目标，融合卡尔曼滤波"""
+    def track(self, light):
+        """跟踪目标"""
         if light is None:
             return (0, 0)  # 如果 light 为 None，返回默认角度
         

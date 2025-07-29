@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import model.cam as camera
 import model.detector as Detector
-import model.tracker as Tracker
+import model.tracker_rel as Tracker
 import model.serial as Serial
 import time  # 导入 time 模块
 
@@ -102,10 +102,10 @@ def main():
         update_hsv()
         
         position = detector.detect(frame)
-        yaw, pitch = tracker.track(position, dt=1/120)  # 传递 dt 参数给 tracker
+        yaw, pitch = tracker.track(position)  # 传递 dt 参数给 tracker
         print(yaw,pitch)
         result = detector.display(frame)
-        # serial.send_data(yaw = -yaw * 0.05, pitch = pitch * 0.05)
+        # serial.send_data(yaw = -yaw * 0.05, pitch = pitch * 0.05, command_id = 0x00)
         if detector.board_img is not None:
             cv2.imshow('board',detector.board_img)
         cv2.imshow('Mask', detector.mask)
@@ -143,7 +143,7 @@ detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
                              , min_pic_area = 150
                              , max_pic_area = 2300)
 
-tracker = Tracker.Tracker(img_width=640, img_height=480, f_mm=3.0, T_cam_gimbal=[0.03, -0.09, 0.0])
+tracker = Tracker.Tracker(img_width=640, vfov = 100)
 
 # serial = Serial.Serial(port='/dev/ttyS1'
 # , baudrate=115200

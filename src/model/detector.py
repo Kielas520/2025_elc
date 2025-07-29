@@ -76,9 +76,19 @@ class Detector:
 
     def find_board(self, binary):
         boards = []
-        board_contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 使用 cv2.RETR_CCOMP 以获取内外轮廓的层次结构
+        board_contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         
-        for contour in board_contours:
+        # 首先尝试寻找内轮廓
+        inner_contours = []
+        for i, contour in enumerate(board_contours):
+            if hierarchy[0][i][3] != -1:  # 有父轮廓的轮廓（内轮廓）
+                inner_contours.append((i, contour))
+        
+        # 如果没有内轮廓，则使用外轮廓（无父轮廓的轮廓）
+        target_contours = inner_contours if inner_contours else [(i, c) for i, c in enumerate(board_contours) if hierarchy[0][i][3] == -1]
+        
+        for i, contour in target_contours:
             area = cv2.contourArea(contour)
             if area > self.board_min_area and area < self.board_max_area:
                 peri = cv2.arcLength(contour, True)
@@ -101,7 +111,7 @@ class Detector:
                     
                     if len(unique_points) < 4:
                         # 如果有任何点重合，重新按新规则排序
-                        # 新的排序规则：左上最左，左下最上，右下最右，右上最下
+                        # 新排序规则：左上最左，左下最上，右下最右，右上最下
                         sorted_points = [
                             points[np.argmin(points[:, 0])],  # 左上：最左边的x坐标
                             points[np.argmin(points[:, 1])],  # 左下：最上面的y坐标

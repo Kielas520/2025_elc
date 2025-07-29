@@ -29,7 +29,7 @@ class Serial:
             time.sleep(1)
             self.open_port()
 
-    def send_data(self, yaw=0.0, pitch=0.0, command_id = 0x01):
+    def send_data(self, yaw=0.0, pitch=0.0, control_id = 0x00):
         """
         发送 float 类型的 yaw 和 pitch（各 4 字节）
         1 - > angle mode
@@ -50,7 +50,7 @@ class Serial:
             # 将 float 转为 4 字节 bytes，并逐字节计算校验
             yaw_bytes = struct.pack('<f', yaw)
             pitch_bytes = struct.pack('<f', pitch)
-            control_bytes = struct.pack('<B', command_id)
+            control_bytes = struct.pack('<B', control_id)
             for byte in yaw_bytes + pitch_bytes + control_bytes:
                 checksum ^= byte
 

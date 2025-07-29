@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import model.cam as camera
 import model.detector as Detector
-import model.tracker as Tracker
+import model.tracker_angle as Tracker
 import model.serial as Serial
 import time
 

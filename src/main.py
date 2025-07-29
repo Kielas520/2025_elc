@@ -103,9 +103,9 @@ def main():
         
         position = detector.detect(frame)
         yaw, pitch = tracker.track(position)  # 传递 dt 参数给 tracker
-        print(yaw,pitch)
+        # print(yaw,pitch)
         result = detector.display(frame)
-        # serial.send_data(yaw = -yaw * 0.05, pitch = pitch * 0.05, command_id = 0x00)
+        serial.send_data(yaw = -yaw * 0.01, pitch = pitch * 0.01, control_id = 0x00)
         if detector.board_img is not None:
             cv2.imshow('board',detector.board_img)
         cv2.imshow('Mask', detector.mask)
@@ -126,7 +126,7 @@ def main():
             break
     cv2.destroyAllWindows()
 
-cam = camera.Camera(index=4
+cam = camera.Camera(index=0
                     , format='MJPG'
                     , width=640
                     , height=480
@@ -145,8 +145,8 @@ detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
 
 tracker = Tracker.Tracker(img_width=640, vfov = 100)
 
-# serial = Serial.Serial(port='/dev/ttyS1'
-# , baudrate=115200
-# , timeout=1
-# , write_timeout=1)
+serial = Serial.Serial(port='/dev/ttyS1'
+ , baudrate=115200
+ , timeout=1
+ , write_timeout=1)
 main()

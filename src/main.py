@@ -105,7 +105,7 @@ def main():
         yaw, pitch = tracker.track(position)  # 传递 dt 参数给 tracker
         # print(yaw,pitch)
         result = detector.display(frame)
-        serial.send_data(yaw = -yaw * 0.01, pitch = pitch * 0.01, control_id = 0x00)
+        serial.send_data(yaw = -yaw * 0.03, pitch = pitch * 0.03, control_id = 0x00)
         if detector.board_img is not None:
             cv2.imshow('board',detector.board_img)
         cv2.imshow('Mask', detector.mask)

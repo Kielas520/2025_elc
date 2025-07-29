@@ -17,7 +17,7 @@ class Board:
         
 
 class Detector:
-    def __init__(self, color, light_min_area, board_min_area, board_max_area, bin_min, bin_max, kernel_x, kernel_y, shrink_distance = 25, min_pic_area = 150, max_pic_area = 2300):
+    def __init__(self, color, light_min_area, board_min_area, board_max_area, bin_min, bin_max, kernel_x, kernel_y, shrink_distance = 25, min_pic_area = 150, max_pic_area = 2300, separate = 20):
         self.std_square = np.float32([[0, 0], [0, 20], [20, 20], [20, 0]])
         self.std_triangle = np.float32([[15, 10], [8, 14], [8, 6]])
         self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
@@ -43,6 +43,7 @@ class Detector:
         # 定义面积上下阈值
         self.min_pic_area = min_pic_area  # 最小面积阈值
         self.max_pic_area = max_pic_area  # 最大面积阈值，可根据需要调整
+        self.separate = separate
 
         self.board = None
         self.board_shape = self.std_star
@@ -304,8 +305,8 @@ class Detector:
             p2 = triangle_pts[(i + 1) % num_points]
             distance = np.linalg.norm(p1 - p2)
             
-            if distance > 10:
-                num_insert = int(distance // 10)
+            if distance > self.separate:
+                num_insert = int(distance // self.separate)
                 for j in range(num_insert + 1):
                     t = j / (num_insert + 1)
                     x = int(p1[0] + t * (p2[0] - p1[0]))
@@ -314,7 +315,7 @@ class Detector:
             else:
                 refined_points.append(tuple(p1))
         
-        if distance <= 5 or num_insert == 0:
+        if distance <= 3 or num_insert == 0:
             refined_points.append(tuple(p2))
         
         draw_points.append(refined_points)

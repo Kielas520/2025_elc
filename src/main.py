@@ -44,6 +44,7 @@ def init_board():
     cv2.createTrackbar('shrink', 'Controls', 15, 100, nothing)
     cv2.createTrackbar('min_pic_area', 'Controls', 150, 2450, nothing)
     cv2.createTrackbar('max_pic_area', 'Controls', 2300, 2450, nothing)
+    cv2.createTrackbar('separate', 'Controls', 5, 80, nothing)
 
 def update_hsv():
     # Get trackbar positions
@@ -63,6 +64,7 @@ def update_hsv():
     shrink = cv2.getTrackbarPos('shrink', 'Controls')
     min_pic_area = cv2.getTrackbarPos('min_pic_area', 'Controls')
     max_pic_area = cv2.getTrackbarPos('max_pic_area', 'Controls')
+    separate = cv2.getTrackbarPos('separate', 'Controls')
 
     # Create HSV threshold range
     detector.bgr_lower = (h_min, s_min, v_min)
@@ -77,6 +79,10 @@ def update_hsv():
     detector.shrink_distance = shrink
     detector.min_pic_area = min_pic_area
     detector.max_pic_area = max_pic_area
+    if separate == 0:
+        detector.separate = 1
+    else:
+        detector.separate = separate
 
 
 def main():

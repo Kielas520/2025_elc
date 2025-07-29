@@ -143,49 +143,78 @@ class Detector:
             self.light = Light()
         return self.light
 
+    def get_board_center(self, board):
+        """
+        计算板子四个角点的中心点
+        参数：
+            board: Board对象，包含points列表
+        返回：
+            center: 中心点坐标 (x, y)，若points无效则返回None
+        """
+        if not board or not board.points or len(board.points) != 4:
+            return None
+        points = np.array(board.points, dtype=np.float32)
+        center = np.mean(points, axis=0)
+        return center
+
     def if_static(self):
         """
-        判断板子是否稳定。
+        判断板子是否稳定，通过比较四个角点的中心点距离。
         - 如果没有 static 板子，比较当前帧与上一帧。
         - 如果有 static 板子，比较 static 与当前帧，稳定则不更新 static。
         """
         # 如果当前板子无效，直接返回当前 static 板子
-        if not self.board_current.points:
+        if not self.board_current.points or len(self.board_current.points) != 4:
+            self.board_img = None
+            return self.board_static
+
+        # 计算当前板子的中心点
+        current_center = self.get_board_center(self.board_current)
+        if current_center is None:
             self.board_img = None
             return self.board_static
 
         # 如果没有 static 板子，比较当前帧与上一帧
-        if not self.board_static.points:
-            if not self.board_prev.points:
-                self.board_img = self.get_board_img(self.board_current)
+        if not self.board_static.points or len(self.board_static.points) != 4:
+            if not self.board_prev.points or len(self.board_prev.points) != 4:
                 # 上一帧也为空，将当前板子设为 static
+                self.board_img = self.get_board_img(self.board_current)
                 self.board_static = self.board_current
             else:
-                # 比较当前帧与上一帧的坐标
-                current_point = np.array(self.board_current.points[3], dtype=np.float32)
-                prev_point = np.array(self.board_prev.points[3], dtype=np.float32)
-                distance = np.linalg.norm(current_point - prev_point)
-                if distance < 5:
+                # 比较当前帧与上一帧的中心点
+                prev_center = self.get_board_center(self.board_prev)
+                if prev_center is None:
                     self.board_img = self.get_board_img(self.board_current)
                     self.board_static = self.board_current
+                else:
+                    distance = np.linalg.norm(current_center - prev_center)
+                    if distance < 1:
+                        self.board_img = self.get_board_img(self.board_current)
+                        self.board_static = self.board_current
             return self.board_static
 
-        # 有 static 板子，比较 static 与当前帧
-        current_top_left = np.array(self.board_current.points[3], dtype=np.float32)
-        static_top_left = np.array(self.board_static.points[3], dtype=np.float32)
-        distance = np.linalg.norm(current_top_left - static_top_left)
+        # 有 static 板子和当前板子，比较中心点
+        static_center = self.get_board_center(self.board_static)
+        if static_center is None:
+            self.board_img = self.get_board_img(self.board_current)
+            self.board_static = self.board_current
+            return self.board_static
+
+        distance = np.linalg.norm(current_center - static_center)
 
         # 如果稳定（距离 < 5），保持 self.board_static 不变
         if distance >= 5:
-            # 如果不稳定，比较当前帧与上一帧，尝试更新 static
-            if self.board_prev.points:
-                prev_top_left = np.array(self.board_prev.points[3], dtype=np.float32)
-                distance_prev = np.linalg.norm(current_top_left - prev_top_left)
-                if distance_prev < 5:
-                    self.board_img = self.get_board_img(self.board_current)
-                    self.board_static = self.board_current
+            # 如果不稳定，比较当前帧与上一帧
+            if self.board_prev.points and len(self.board_prev.points) == 4:
+                prev_center = self.get_board_center(self.board_prev)
+                if prev_center is not None:
+                    distance_prev = np.linalg.norm(current_center - prev_center)
+                    if distance_prev < 5:
+                        self.board_img = self.get_board_img(self.board_current)
+                        self.board_static = self.board_current
 
         return self.board_static
+
 
     def get_board_img(self, board):
         # 将board.points转换为numpy数组

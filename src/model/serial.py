@@ -29,8 +29,12 @@ class Serial:
             time.sleep(1)
             self.open_port()
 
-    def send_data(self, yaw=0.0, pitch=0.0):
-        """发送 float 类型的 yaw 和 pitch（各 4 字节）"""
+    def send_data(self, yaw=0.0, pitch=0.0, command_id = 0x01):
+        """
+        发送 float 类型的 yaw 和 pitch（各 4 字节）
+        1 - > angle mode
+        0 - > relative mode
+        """
         try:
             if not self.ser or not self.ser.is_open:
                 self.reopen_port()
@@ -40,13 +44,14 @@ class Serial:
             header_1 = 0xAA
             header_2 = 0x55
             command_id = 0x01
-            length = 0x08  # yaw + pitch = 8 字节
+            length = 0x09  # yaw + pitch = 8 字节
             checksum = command_id ^ length
 
             # 将 float 转为 4 字节 bytes，并逐字节计算校验
             yaw_bytes = struct.pack('<f', yaw)
             pitch_bytes = struct.pack('<f', pitch)
-            for byte in yaw_bytes + pitch_bytes:
+            control_bytes = struct.pack('<B', command_id)
+            for byte in yaw_bytes + pitch_bytes + control_bytes:
                 checksum ^= byte
 
             tail_1 = 0x0D
@@ -57,6 +62,7 @@ class Serial:
                 struct.pack("<BBBB", header_1, header_2, command_id, length) +
                 yaw_bytes +
                 pitch_bytes +
+                control_bytes +
                 struct.pack("<B", checksum) +  # 确保 checksum 是 1 字节
                 struct.pack("<BB", tail_1, tail_2)
             )

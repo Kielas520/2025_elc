@@ -6,34 +6,23 @@ class Board:
     def __init__(self):
         self.points = []  # 四边形角点 [左上, 左下, 右下, 右上]
         self.area = None
-        self.draw_points = []  # 存储每个板的变换后图形坐标
-        self.drawn = []
-        self.target_point = None
         self.center = None
         
 
 class Detector:
-    def __init__(self, board_color, board_min_area, board_max_area, separate = 20):
+    def __init__(self, board_color, board_min_area, board_max_area):
         self.std_square = np.float32([[0, 0], [30, 0], [30, 21], [0, 21]])
-        self.std_circle = np.float32([[18, 10], [17, 13], [15, 16], [12, 18], [8, 18], [5, 16], [3, 13], [2, 10], [3, 7], [5, 4], [8, 2], [12, 2], [15, 4], [17, 7], [18, 10]])
-        
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
 
         self.task = 1
 
         self.board_mask = None
-        self.board_img = None  # 或初始化为空图像
         self.board_min_area = board_min_area
         self.board_max_area = board_max_area
-        
-        self.separate = separate
-
         self.board = None
         
-        self.board_static = Board()  # 初始化为空 Board 对象
-        self.board_current = Board()  # 当前帧板子
-        self.board_prev = Board()  # 上一帧板子
+        self.circle_step = 0
         self.result_img = None
 
     def process(self, frame):
@@ -100,143 +89,49 @@ class Detector:
             self.board = Board()
         return self.board
 
+    def line_intersection(self, line1, line2):
+        """
+        计算两条直线的交点。
+        每条直线由两个点定义：[(x1, y1), (x2, y2)]。
+        如果直线平行或无效，返回 None。
+        """
+        x1, y1 = line1[0]
+        x2, y2 = line1[1]
+        x3, y3 = line2[0]
+        x4, y4 = line2[1]
+
+        # 计算分母
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(denom) < 1e-10:  # 直线平行
+            return None
+
+        # 计算交点坐标
+        px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denom
+        py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denom
+
+        return (px, py)
+
     def get_board_center(self, board):
         """
-        计算板子四个角点的中心点
-        参数：
-            board: Board对象，包含points列表
-        返回：
-            center: 中心点坐标 (x, y)，若points无效则返回None
+        通过计算左上到右下和右上到左下两条直线的交点来获取板的中心。
         """
-        if not board or not board.points or len(board.points) != 4:
+        if not board or len(board.points) != 4:
+            board.center = None
             return None
-        points = np.array(board.points, dtype=np.float32)
-        center = np.mean(points, axis=0)
+
+        # 提取四个点
+        top_left, bottom_left, bottom_right, top_right = board.points
+
+        # 定义两条直线
+        line1 = [top_left, bottom_right]  # 左上到右下
+        line2 = [top_right, bottom_left]  # 右上到左下
+
+        # 计算交点
+        center = self.line_intersection(line1, line2)
         board.center = center
         return center
 
-    def if_static(self):
-        """
-        判断板子是否稳定，通过比较四个角点的中心点距离。
-        - 如果没有 static 板子，比较当前帧与上一帧。
-        - 如果有 static 板子，比较 static 与当前帧，稳定则不更新 static。
-        """
-        # 如果当前板子无效，直接返回当前 static 板子
-        if not self.board_current.points or len(self.board_current.points) != 4:
-            self.board_img = None
-            return self.board_static
-
-        # 计算当前板子的中心点
-        current_center = self.get_board_center(self.board_current)
-        if current_center is None:
-            self.board_img = None
-            return self.board_static
-
-        # 如果没有 static 板子，比较当前帧与上一帧
-        if not self.board_static.points or len(self.board_static.points) != 4:
-            if not self.board_prev.points or len(self.board_prev.points) != 4:
-                # 上一帧也为空，将当前板子设为 static
-                self.board_static = self.board_current
-            else:
-                # 比较当前帧与上一帧的中心点
-                prev_center = self.get_board_center(self.board_prev)
-                if prev_center is None:
-                    self.board_static = self.board_current
-                else:
-                    distance = np.linalg.norm(current_center - prev_center)
-                    if distance < 1:
-                        self.board_static = self.board_current
-            return self.board_static
-
-        # 有 static 板子和当前板子，比较中心点
-        static_center = self.get_board_center(self.board_static)
-        if static_center is None:
-            self.board_static = self.board_current
-            return self.board_static
-
-        distance = np.linalg.norm(current_center - static_center)
-
-        # 如果稳定（距离 < 5），保持 self.board_static 不变
-        if distance >= 5:
-            # 如果不稳定，比较当前帧与上一帧
-            if self.board_prev.points and len(self.board_prev.points) == 4:
-                prev_center = self.get_board_center(self.board_prev)
-                if prev_center is not None:
-                    distance_prev = np.linalg.norm(current_center - prev_center)
-                    if distance_prev < 5:
-                        self.board_static = self.board_current
-
-        return self.board_static
-    def get_to_draw_points(self, board):
-        """
-        计算并存储板的变换后三角形坐标。
-        如果 board 无效，返回空 Board。
-        """
-            
-        draw_points = []
-        if not board or len(board.points) != 4:
-            board.draw_points = []
-            return board
-        
-        # 将board.points转换为numpy数组
-        src_pts = np.float32(board.points)
-        M = cv2.getPerspectiveTransform(self.std_square, src_pts)
-        triangle_pts = cv2.perspectiveTransform(self.std_circle.reshape(-1, 1, 2), M)
-        triangle_pts = triangle_pts.reshape(-1, 2).astype(np.int32)
-        
-        refined_points = []
-        num_points = len(triangle_pts)
-        for i in range(num_points):
-            p1 = triangle_pts[i]
-            p2 = triangle_pts[(i + 1) % num_points]
-            distance = np.linalg.norm(p1 - p2)
-            
-            if distance > self.separate:
-                num_insert = int(distance // self.separate)
-                for j in range(num_insert + 1):
-                    t = j / (num_insert + 1)
-                    x = int(p1[0] + t * (p2[0] - p1[0]))
-                    y = int(p1[1] + t * (p2[1] - p1[1]))
-                    refined_points.append((x, y))
-            else:
-                refined_points.append(tuple(p1))
-        
-        if distance <= 3 or num_insert == 0:
-            refined_points.append(tuple(p2))
-        
-        draw_points.append(refined_points)
-        board.draw_points = draw_points
-        return board
-
-    def draw(self, board, light):
-        """
-        绘制光点和板子，使用传入的 board（通常是 self.board_static 或 self.board_current）。
-        """
-        if not board or not board.draw_points or not light:
-            return None
-        
-        light = light[0] if isinstance(light, list) else light
-        
-        current_triangle = board.draw_points[0]
-        remaining_points = [pt for pt in current_triangle if tuple(pt) not in board.drawn]
-        
-        if not remaining_points:
-            board.drawn.clear()
-            remaining_points = current_triangle
-        
-        light.target_point = remaining_points[0]
-        
-        laser_pos = np.array(light.position, dtype=np.float32)
-        target_pos = np.array(light.target_point, dtype=np.float32)
-        distance = np.linalg.norm(laser_pos - target_pos)
-        
-        if distance < 5:
-            board.drawn.append(tuple(light.target_point))
-            return self.draw(board, light)
-        
-        self.board = board
-        self.light = light
-        return light
+    #def get_circle(self, frame):
 
     def display(self, frame):
         """
@@ -265,17 +160,6 @@ class Detector:
                 triangle = self.board.draw_points[0]
                 pts = np.array(triangle, np.int32)
                 cv2.polylines(img, [pts], True, (0, 0, 255), 2)
-            
-            # 绘制待绘制点（蓝色）
-            if self.board.draw_points and len(self.board.draw_points) > 0:
-                current_triangle = self.board.draw_points[0]
-                for point in current_triangle:
-                    if tuple(point) not in self.board.drawn:
-                        cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 0, 0), -1)
-            
-            # 绘制已处理的点（白色）
-            for point in self.board.drawn:
-                cv2.circle(img, (int(point[0]), int(point[1])), 5, (255, 255, 255), -1)
         
         self.result_img = img
         return img
@@ -292,28 +176,8 @@ class Detector:
         """
         检测光点和板子，使用稳定的板子进行跟踪。
         """
-        # 处理帧，生成掩膜和二值图像
         mask = self.process(frame)
-        
-        # 检测当前板子并存储到 self.board_current
-        self.board_current = self.find_board(mask)
-        
-        # 判断板子是否稳定，更新 self.board_static
-        static_board = self.if_static()
-        
-        # 使用静态板子（如果存在）进行跟踪，否则使用当前板子
-        board_to_use = static_board if static_board.points else self.board_current
-        
-        # 计算要绘制的点
-        board_to_use = self.get_to_draw_points(board_to_use)
-        
-        # 绘制光点和板子
-        light = self.draw(board_to_use, light)
-        
-        # 更新 self.board 为显示用
-        self.board = board_to_use
-        
-        # 更新上一帧板子
-        self.board_prev = self.board_current
-        
-        return light
+        self.board = self.find_board(mask)
+        center = self.get_board_center(self.board)
+        target = 
+        return center

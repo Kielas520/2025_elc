@@ -117,8 +117,8 @@ def main():
                 break
 
             update_hsv()
-            if detector.task == 1:
-                position = detector.task1(frame)
+            if detector.task == 2:
+                position = detector.task2(frame)
                 if position_queue.full():
                     position_queue.get()  # 清除旧数据
                 position_queue.put(position)  # 将 position 传递给线程

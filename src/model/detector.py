@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import math
 
 class Board:
     def __init__(self):
@@ -15,7 +15,7 @@ class Detector:
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
 
-        self.task = 1
+        self.task = 2
 
         self.board_mask = None
         self.board_min_area = board_min_area
@@ -24,6 +24,7 @@ class Detector:
         
         self.circle_step = 0
         self.result_img = None
+        self.target = None
 
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -131,15 +132,62 @@ class Detector:
         board.center = center
         return center
 
-    #def get_circle(self, frame):
+    def get_circle(self, frame, diameter_ratio=0.5):
+        """
+        在变换后的板子上画圆，检查当前角度点是否接近屏幕中心，若接近则递增角度并计算新点坐标。
+        参数：
+            frame: 输入图像
+            diameter_ratio: 圆的直径与板子宽度的比例
+        返回：
+            self.target: 圆周上当前角度的点在原图像中的坐标
+        """
+        if not self.board or len(self.board.points) != 4:
+            self.target = None
+            return None
+
+        # 获取板子的四个角点
+        src_points = np.float32(self.board.points)
+        dst_points = self.std_square
+
+        # 计算透视变换矩阵
+        M = cv2.getPerspectiveTransform(src_points, dst_points)
+        M_inv = cv2.getPerspectiveTransform(dst_points, src_points)
+
+        # 变换后板子的宽度（std_square 的宽度）
+        board_width = self.std_square[1][0] - self.std_square[0][0]
+        circle_radius = (board_width * diameter_ratio) / 2
+
+        # 计算变换后板子中心（std_square 的中心）
+        std_center_x = (self.std_square[0][0] + self.std_square[1][0]) / 2
+        std_center_y = (self.std_square[0][1] + self.std_square[2][1]) / 2
+
+        # 计算当前 circle_step 对应的圆周点
+        angle_rad = math.radians(self.circle_step)
+        circle_x = std_center_x + circle_radius * math.cos(angle_rad)
+        circle_y = std_center_y + circle_radius * math.sin(angle_rad)
+
+        # 将圆周上的点变换回原图像坐标
+        pt = np.float32([[[circle_x, circle_y]]])
+        target = cv2.perspectiveTransform(pt, M_inv)[0][0]
+        self.target = tuple(target)
+
+        # 检查当前点与屏幕中心点的距离
+        frame_center = (frame.shape[1] / 2, frame.shape[0] / 2)  # 屏幕中心
+        distance = math.sqrt((self.target[0] - frame_center[0])**2 + (self.target[1] - frame_center[1])**2)
+
+        # 如果距离足够小（例如 < 10 像素），递增 circle_step
+        if distance < 10:
+            self.circle_step = (self.circle_step + 1) % 360
+
+        return self.target
 
     def display(self, frame):
         """
-        显示处理结果，绘制板子和光点。
+        显示处理结果，绘制板子、中心点和目标点。
         """
         img = frame.copy()
         if self.task == 1:
-            # 绘制背景板（绿色）,和背景版中心点，红色
+            # 绘制背景板（绿色）和中心点（红色）
             if len(self.board.points) == 4:
                 pts = np.array(self.board.points, np.int32)
                 cv2.polylines(img, [pts], True, (0, 255, 0), 2)
@@ -148,18 +196,18 @@ class Detector:
                 if self.board.center is not None:
                     cv2.circle(img, (int(self.board.center[0]), int(self.board.center[1])), 5, (0, 255, 0), -1)
         
-        elif self.task ==2:
-            # 绘制背景板（绿色）,和背景版中心点，红色
+        elif self.task == 2:
+            # 绘制背景板（绿色）和中心点（红色）
             if len(self.board.points) == 4:
                 pts = np.array(self.board.points, np.int32)
                 cv2.polylines(img, [pts], True, (0, 255, 0), 2)
                 for i, pt in enumerate(self.board.points):
                     cv2.putText(img, str(i), pt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-            # 绘制目标（红色）
-            if self.board.draw_points and len(self.board.draw_points) > 0:
-                triangle = self.board.draw_points[0]
-                pts = np.array(triangle, np.int32)
-                cv2.polylines(img, [pts], True, (0, 0, 255), 2)
+                if self.board.center is not None:
+                    cv2.circle(img, (int(self.board.center[0]), int(self.board.center[1])), 5, (0, 255, 0), -1)
+            # 绘制目标点（橙色）
+            if self.target is not None:
+                cv2.circle(img, (int(self.target[0]), int(self.target[1])), 5, (0, 165, 255), -1)
         
         self.result_img = img
         return img
@@ -174,10 +222,10 @@ class Detector:
 
     def task2(self, frame):
         """
-        检测光点和板子，使用稳定的板子进行跟踪。
+        检测光点和板子，使用稳定的板子进行跟踪，并计算圆周上的目标点。
         """
         mask = self.process(frame)
         self.board = self.find_board(mask)
         center = self.get_board_center(self.board)
-        target = 
-        return center
+        target = self.get_circle(frame, diameter_ratio=0.5)  # 可调整 diameter_ratio
+        return center, target

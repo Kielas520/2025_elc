@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 import model.cam as camera
 import model.detector as Detector
-import model.tracker_angle as Tracker
-import model.serial as Serial
+import test.tracker_angle as Tracker
+import model.serial_port as Serial
 import time
 
 def nothing(x):

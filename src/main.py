@@ -3,7 +3,8 @@ import numpy as np
 import model.cam as camera
 import model.detector as Detector
 import model.tracker as Tracker
-import model.serial as Serial
+import model.steeper as Steeper
+#import model.serial_port as Serial
 import time  # 导入 time 模块
 
 def nothing(x):
@@ -90,6 +91,7 @@ def main():
         if detector.task == 1:
             position = detector.task1(frame)
             yaw, pitch = tracker.track1(position, dt)  # 传递 dt 参数给 tracker
+            steeper_yaw.emm_v5_move_to_angle(angle_deg=yaw, vel_rpm=100, acc=10, abs_mode=False)
             # print(yaw,pitch)
             result = detector.display(frame)
             # serial.send_data(yaw, pitch)
@@ -115,18 +117,21 @@ def main():
 
 cam = camera.Camera(index=0
                     , format='MJPG'
-                    , width=640
-                    , height=480
-                    , fps=240)
+                    , width=1280
+                    , height=720
+                    , fps=30)
 
 detector = Detector.Detector(board_color = [(13, 255, 152), (0, 51, 110)]
                              , board_min_area = 18310
                              , board_max_area = 50000)
 
-tracker = Tracker.Tracker(img_width=640, vfov = 100)
+tracker = Tracker.Tracker(img_width=1280, vfov = 100)
+
+steeper_yaw = Steeper.MotorController(port='/dev/ttyUSB0', baudrate=115200, timeout=0.001, motor_id=1)
 
 # serial = Serial.Serial(port='/dev/ttyS1'
 #  , baudrate=115200
 #  , timeout=1
 #  , write_timeout=1)
+
 main()

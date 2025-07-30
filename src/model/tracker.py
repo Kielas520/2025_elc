@@ -6,7 +6,7 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width = 640, img_height = 480, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 35):
+    def __init__(self, img_width = 1280, img_height = 720, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 35):
         self.img_width = img_width
         self.vfov = vfov
         self.use_kf = use_kf  # 是否使用卡尔曼滤波

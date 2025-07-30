@@ -40,9 +40,6 @@ class Detector:
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.board_lower, self.board_upper)
         self.board_mask = mask
-        # # 背景板检测（阈值分割）
-        # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # _, binary = cv2.threshold(gray, self.bin_min, self.bin_max, cv2.THRESH_BINARY_INV)
         return mask
 
     def find_board(self, binary):

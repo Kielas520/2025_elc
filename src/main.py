@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import model.cam as camera
 import model.detector as Detector
-import model.tracker_rel as Tracker
+import model.tracker as Tracker
 import model.serial as Serial
 import time  # 导入 time 模块
 
@@ -12,22 +12,16 @@ def nothing(x):
 def init_board():
     cv2.namedWindow('Result', cv2.WINDOW_FREERATIO)
     cv2.namedWindow('Mask', cv2.WINDOW_FREERATIO)
-    cv2.namedWindow('board', cv2.WINDOW_FREERATIO)
-    cv2.namedWindow('binary', cv2.WINDOW_FREERATIO)
     cv2.moveWindow('Mask', 360, 180)
-    cv2.moveWindow('binary', 360, 0)
     cv2.moveWindow('Result', 540, 180)
-    cv2.moveWindow('board', 540, 0)
 
     cv2.resizeWindow('Mask', 170, 150)
-    cv2.resizeWindow('binary', 170, 150)
     cv2.resizeWindow('Result', 170,150)
-    cv2.resizeWindow('board', 170, 150)
 
     # Create trackbars for HSV thresholds (initial values for light yellow)
     cv2.namedWindow('Controls', cv2.WINDOW_FREERATIO)
     cv2.moveWindow('Controls', 0, 0)
-    cv2.resizeWindow('Controls', 320, 400)  # 增大窗口尺寸
+    cv2.resizeWindow('Controls', 320, 400)
     cv2.createTrackbar('H Min', 'Controls', 133, 179, nothing)  # Hue min (yellow ~20-30)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)  # Hue max
     cv2.createTrackbar('S Min', 'Controls', 255, 255, nothing) # Saturation min
@@ -37,13 +31,6 @@ def init_board():
     cv2.createTrackbar('light_area', 'Controls', 5, 200, nothing)
     cv2.createTrackbar('board_min_area', 'Controls', 18310, 307200, nothing)
     cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
-    cv2.createTrackbar('bin_min', 'Controls', 9, 255, nothing)
-    cv2.createTrackbar('bin_max', 'Controls', 255, 255, nothing)
-    cv2.createTrackbar('kernel_x', 'Controls', 3, 10, nothing)
-    cv2.createTrackbar('kernel_y', 'Controls', 3, 10, nothing)
-    cv2.createTrackbar('shrink', 'Controls', 15, 100, nothing)
-    cv2.createTrackbar('min_pic_area', 'Controls', 150, 2450, nothing)
-    cv2.createTrackbar('max_pic_area', 'Controls', 2300, 2450, nothing)
     cv2.createTrackbar('separate', 'Controls', 5, 80, nothing)
     cv2.createTrackbar('yaw_pid', 'Controls', 3, 100, nothing)
     cv2.createTrackbar('pitch_pid', 'Controls', 3, 100, nothing)
@@ -55,33 +42,19 @@ def update_hsv():
     s_max = cv2.getTrackbarPos('S Max', 'Controls')
     v_min = cv2.getTrackbarPos('V Min', 'Controls')
     v_max = cv2.getTrackbarPos('V Max', 'Controls')
-    light_area = cv2.getTrackbarPos('light_area', 'Controls')
     board_min_area = cv2.getTrackbarPos('board_min_area', 'Controls')
     board_max_area = cv2.getTrackbarPos('board_max_area', 'Controls')
-    bin_min = cv2.getTrackbarPos('bin_min', 'Controls')
-    bin_max = cv2.getTrackbarPos('bin_max', 'Controls')
-    kernel_x = cv2.getTrackbarPos('kernel_x', 'Controls')
-    kernel_y = cv2.getTrackbarPos('kernel_y', 'Controls')
-    shrink = cv2.getTrackbarPos('shrink', 'Controls')
-    min_pic_area = cv2.getTrackbarPos('min_pic_area', 'Controls')
-    max_pic_area = cv2.getTrackbarPos('max_pic_area', 'Controls')
+
     separate = cv2.getTrackbarPos('separate', 'Controls')
     yaw_pid = cv2.getTrackbarPos('yaw_pid', 'Controls')
     pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
 
     # Create HSV threshold range
-    detector.bgr_lower = (h_min, s_min, v_min)
-    detector.bgr_upper = (h_max, s_max, v_max)
-    detector.light_min_area = light_area
+    detector.board_lower = (h_min, s_min, v_min)
+    detector.board_upper = (h_max, s_max, v_max)
+
     detector.board_min_area = board_min_area
     detector.board_max_area = board_max_area
-    detector.bin_min = bin_min
-    detector.bin_max = bin_max
-    detector.kernel_x = kernel_x
-    detector.kernel_y = kernel_y
-    detector.shrink_distance = shrink
-    detector.min_pic_area = min_pic_area
-    detector.max_pic_area = max_pic_area
     
     if yaw_pid == 0:
         pass
@@ -113,17 +86,14 @@ def main():
             break
 
         update_hsv()
-        
-        position = detector.detect(frame)
-        yaw, pitch = tracker.track(position)  # 传递 dt 参数给 tracker
-        # print(yaw,pitch)
-        result = detector.display(frame)
-        serial.send_data(yaw, pitch)
-        if detector.board_img is not None:
-            cv2.imshow('board',detector.board_img)
-        cv2.imshow('Mask', detector.mask)
-        cv2.imshow('binary', detector.binary)
-        cv2.imshow('Result', result)
+        if detector.task == 1:
+            position = detector.task1(frame)
+            yaw, pitch = tracker.track1(position)  # 传递 dt 参数给 tracker
+            # print(yaw,pitch)
+            result = detector.display(frame)
+            # serial.send_data(yaw, pitch)
+            cv2.imshow('Mask', detector.board_mask)
+            cv2.imshow('Result', result)
 
         # 计算 FPS
         current_time = time.time()
@@ -145,21 +115,14 @@ cam = camera.Camera(index=0
                     , height=480
                     , fps=240)
 
-detector = Detector.Detector(color = [(13, 255, 152), (0, 51, 110)]
-                             , light_min_area = 5
+detector = Detector.Detector(board_color = [(13, 255, 152), (0, 51, 110)]
                              , board_min_area = 18310
-                             , board_max_area = 50000
-                             , bin_min = 50, bin_max = 150
-                             , kernel_x = 3
-                             , kernel_y = 3
-                             , shrink_distance = 15
-                             , min_pic_area = 150
-                             , max_pic_area = 2300)
+                             , board_max_area = 50000)
 
 tracker = Tracker.Tracker(img_width=640, vfov = 100)
 
-serial = Serial.Serial(port='/dev/ttyS1'
- , baudrate=115200
- , timeout=1
- , write_timeout=1)
+# serial = Serial.Serial(port='/dev/ttyS1'
+#  , baudrate=115200
+#  , timeout=1
+#  , write_timeout=1)
 main()

@@ -19,11 +19,13 @@ class Tracker:
         self.lost = 0  # 丢失帧计数
         self.predict = False  # 是否处于预测状态
         self.if_find = False  # 是否找到目标
-        self.kf_cx.dt = 1 / 30
-        self.kf_cy.dt = 1 / 30
+
         # 初始化卡尔曼滤波器
         self.kf_cx = KalmanFilter()  # x 坐标滤波器
         self.kf_cy = KalmanFilter()  # y 坐标滤波器
+
+        self.kf_cx.dt = 1 / 30
+        self.kf_cy.dt = 1 / 30
 
     def update_dt(self, dt):
         """更新卡尔曼滤波器时间步长"""

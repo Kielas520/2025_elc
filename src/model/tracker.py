@@ -74,7 +74,7 @@ class Tracker:
         pitch = math.atan(center[1] / focal_pixel_distance) * RAD2DEG
         return yaw, pitch
 
-    def track1(self, center, dt):
+    def track(self, center, dt):
         """跟踪目标"""
         center = self.tf_center_to_target(center)
         if center is None:

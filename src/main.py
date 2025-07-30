@@ -92,28 +92,30 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
             pitch_history.append(pitch)
 
             if yaw is None or pitch is None:
+                yaw = 0
+                pitch = 0
                 # 当 yaw 或 pitch 为 None 时，计算 yaw 的平均值
-                valid_yaws = [y for y in yaw_history if y is not None]
-                if valid_yaws:  # 确保有有效数据
-                    yaw_avg = sum(valid_yaws) / len(valid_yaws)
-                    # 根据平均值正负决定电机转向
-                    yaw_angle = 5.0 if yaw_avg > 0 else -5.0  # 固定小角度旋转防止绕线
-                    try:
-                        stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw_angle, vel_rpm=100, acc=100, abs_mode=False)
-                        time.sleep(0.01)
-                    except Exception:
-                        pass
-                continue
+                # valid_yaws = [y for y in yaw_history if y is not None]
+                # if valid_yaws:  # 确保有有效数据
+                #     yaw_avg = sum(valid_yaws) / len(valid_yaws)
+                #     # 根据平均值正负决定电机转向
+                #     yaw_angle = 5.0 if yaw_avg > 0 else -5.0  # 固定小角度旋转防止绕线
+                #     try:
+                #         stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw_angle, vel_rpm=1, acc=10, abs_mode=False)
+                #         time.sleep(0.01)
+                #     except Exception:
+                #         pass
+                # continue
             
             if yaw != 0:
                 try:
-                    stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw, vel_rpm=100, acc=100, abs_mode=False)
+                    stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw, vel_rpm=1, acc=0, abs_mode=False)
                     time.sleep(0.01)
                 except Exception:
                     pass
             if pitch != 0:
                 try:
-                    stepper_pitch.emm_v5_move_to_angle(angle_deg=pitch, vel_rpm=100, acc=100, abs_mode=False)
+                    stepper_pitch.emm_v5_move_to_angle(angle_deg=pitch, vel_rpm=1, acc=0, abs_mode=False)
                     time.sleep(0.01)
                 except Exception:
                     pass
@@ -182,9 +184,9 @@ def main():
         stepper_pitch.close()
         cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=1280, height=720, fps=30)
+cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=1280, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 20, yaw_tol = 1, pitch_tol = 1)
+tracker = Tracker.Tracker(img_width=640, img_height = 480, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = False, frame_add = 0, yaw_tol = 1, pitch_tol = 1)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 

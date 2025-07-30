@@ -1,12 +1,6 @@
 import serial
 import enum
 import time
-import sys
-import os
-
-# 检查模块冲突
-if os.path.exists(os.path.join(os.path.dirname(__file__), 'serial.py')):
-    sys.exit("错误：检测到本地 'serial.py' 文件，可能与 pyserial 冲突。请重命名 'serial.py' 为其他名称（如 'serial_port.py'）。")
 
 # 定义 SysParams_t 枚举类
 class SysParams(enum.Enum):
@@ -334,23 +328,23 @@ def test_motor_control(motor: MotorController, addr: int = None):
         motor.emm_v5_reset_curpos_to_zero(addr)
 
         # 测试3：设置闭环控制模式（存储）
-        motor.emm_v5_modify_ctrl_mode(addr, svF=True, ctrl_mode=2)
+        motor.emm_v5_modify_ctrl_mode(addr, svF = True, ctrl_mode = 2)
 
         # 测试4：使能电机
-        motor.emm_v5_en_control(addr, state=True, snF=False)
+        motor.emm_v5_en_control(addr, state = True, snF = False)
 
         # 测试5：按角度移动（90°，顺时针）
-        motor.emm_v5_move_to_angle(addr, angle_deg=90.0, vel_rpm=1000, acc=50, abs_mode=False)
+        motor.emm_v5_move_to_angle(addr, angle_deg = 90.0, vel_rpm = 1000, acc = 50, abs_mode = False)
         time.sleep(2)  # 运行2秒
 
         # 测试6：立即停止
-        motor.emm_v5_stop_now(addr, snF=False)
+        motor.emm_v5_stop_now(addr, snF = False)
 
         # 测试7：位置模式（相对运动，10000脉冲）
-        motor.emm_v5_pos_control(addr, dir=0, vel=1000, acc=50, clk=10000, raF=False, snF=False)
+        motor.emm_v5_pos_control(addr, dir = 0, vel = 1000, acc = 50, clk = 10000, raF = False, snF = False)
 
         # 测试8：触发回零（单圈就近）
-        motor.emm_v5_origin_trigger_return(addr, o_mode=0, snF=False)
+        motor.emm_v5_origin_trigger_return(addr, o_mode = 0, snF = False)
 
     except Exception:
         pass
@@ -359,7 +353,7 @@ def test_motor_control(motor: MotorController, addr: int = None):
 
 if __name__ == "__main__":
     # 创建电机控制器实例，指定串口和电机ID
-    motor = MotorController(port='/dev/ttyUSB0', motor_id=1)
+    motor = MotorController(port = '/dev/ttyUSB0', motor_id = 1)
     try:
         test_motor_control(motor)
     except Exception:

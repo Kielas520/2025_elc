@@ -106,11 +106,3 @@ class Tracker:
                 center = self.get_kf_state()  # 获取滤波后的中心点
         yaw, pitch = self.pixel_to_yaw_pitch(center)
         return yaw, pitch
-    
-    def track2(self, light):
-        """跟踪目标"""
-        if light is None:
-            return None, None  # 如果 light 为 None，返回默认角度
-        target = self.tf(light)
-        yaw, pitch = self.pixel_to_yaw_pitch(target)
-        return yaw, pitch

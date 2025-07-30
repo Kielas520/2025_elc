@@ -8,9 +8,8 @@ class Board:
         self.area = None
         self.center = None
         
-
 class Detector:
-    def __init__(self, board_color, board_min_area, board_max_area):
+    def __init__(self, board_color, board_min_area, board_max_area, diameter_ratio):
         self.std_square = np.float32([[0, 0], [30, 0], [30, 21], [0, 21]])
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
@@ -22,6 +21,7 @@ class Detector:
         self.board_max_area = board_max_area
         self.board = None
         
+        self.diameter_ratio = diameter_ratio
         self.circle_step = 0
         self.result_img = None
         self.target = None
@@ -132,7 +132,7 @@ class Detector:
         board.center = center
         return center
 
-    def get_circle(self, frame, diameter_ratio=0.5):
+    def get_circle(self, frame):
         """
         在变换后的板子上画圆，检查当前角度点是否接近屏幕中心，若接近则递增角度并计算新点坐标。
         参数：
@@ -155,7 +155,7 @@ class Detector:
 
         # 变换后板子的宽度（std_square 的宽度）
         board_width = self.std_square[1][0] - self.std_square[0][0]
-        circle_radius = (board_width * diameter_ratio) / 2
+        circle_radius = (board_width * self.diameter_ratio) / 2
 
         # 计算变换后板子中心（std_square 的中心）
         std_center_x = (self.std_square[0][0] + self.std_square[1][0]) / 2
@@ -212,13 +212,11 @@ class Detector:
         self.result_img = img
         return img
 
-
     def task1(self, frame):
         mask = self.process(frame)
         self.board = self.find_board(mask)
         center = self.get_board_center(self.board)
         return center
-
 
     def task2(self, frame):
         """
@@ -226,6 +224,5 @@ class Detector:
         """
         mask = self.process(frame)
         self.board = self.find_board(mask)
-        center = self.get_board_center(self.board)
-        target = self.get_circle(frame, diameter_ratio=0.5)  # 可调整 diameter_ratio
-        return center, target
+        target = self.get_circle(frame)  # 可调整 diameter_ratio
+        return target

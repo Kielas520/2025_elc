@@ -6,26 +6,29 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width = 1280, img_height = 720, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 20):
-        self.img_width = img_width
-        self.vfov = vfov
-        self.use_kf = use_kf  # 是否使用卡尔曼滤波
+    def __init__(self, img_width = 1280, img_height = 720, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 20, yaw_tol = 1, pitch_tol = 1):
         self.img_width = img_width
         self.img_height = img_height
         self.vfov = vfov
-        self.yaw_pid = yaw_pid
-        self.pitch_pid = pitch_pid
+
         self.frame_add = frame_add  # 补帧数
         self.lost = 0  # 丢失帧计数
         self.predict = False  # 是否处于预测状态
         self.if_find = False  # 是否找到目标
 
+        self.use_kf = use_kf  # 是否使用卡尔曼滤波
         # 初始化卡尔曼滤波器
         self.kf_cx = KalmanFilter()  # x 坐标滤波器
         self.kf_cy = KalmanFilter()  # y 坐标滤波器
 
         self.kf_cx.dt = 1 / 30
         self.kf_cy.dt = 1 / 30
+
+        self.yaw_pid = yaw_pid
+        self.pitch_pid = pitch_pid
+        self.yaw_tol = yaw_tol
+        self.pitch_tol = pitch_tol
+        
 
     def update_dt(self, dt):
         """更新卡尔曼滤波器时间步长"""
@@ -89,11 +92,11 @@ class Tracker:
                     self.lost = 0
                     self.predict = False
                     self.if_find = False
-                    return 0, 0
+                    return None, None
             else:
                 print("未检测到目标")
                 self.if_find = False
-                return 0, 0
+                return None, None
         else:
             # 检测到目标
             self.predict = True
@@ -105,4 +108,10 @@ class Tracker:
                 self.kf_predict()  # 预测下一步
                 center = self.get_kf_state()  # 获取滤波后的中心点
         yaw, pitch = self.pixel_to_yaw_pitch(center)
+        
+        if abs(yaw) <= self.yaw_tol and abs(pitch) <= self.pitch_tol:
+            pass
+        else:
+            pass
+
         return yaw, pitch

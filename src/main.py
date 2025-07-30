@@ -6,6 +6,7 @@ import model.tracker as Tracker
 import model.stepper as Stepper
 import multiprocessing
 import time
+from collections import deque
 
 def nothing(x):
     pass
@@ -33,6 +34,8 @@ def init_board():
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
     cv2.createTrackbar('yaw_pid', 'Controls', 40, 300, nothing)
     cv2.createTrackbar('pitch_pid', 'Controls', 40, 300, nothing)
+    cv2.createTrackbar('yaw_tol', 'Controls', 1, 10, nothing)
+    cv2.createTrackbar('pitch_tol', 'Controls', 1, 10, nothing)
 
 def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -46,6 +49,8 @@ def update_hsv():
     diameter_ratio = cv2.getTrackbarPos('diameter_ratio', 'Controls')
     yaw_pid = cv2.getTrackbarPos('yaw_pid', 'Controls')
     pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
+    yaw_tol = cv2.getTrackbarPos('yaw_tol', 'Controls')
+    pitch_tol = cv2.getTrackbarPos('pitch_tol', 'Controls')
 
     detector.board_lower = (h_min, s_min, v_min)
     detector.board_upper = (h_max, s_max, v_max)
@@ -58,6 +63,10 @@ def update_hsv():
     if pitch_pid != 0:
         tracker.pitch_pid = pitch_pid / 100
 
+    tracker.yaw_tol = yaw_tol
+    tracker.pitch_tol = pitch_tol
+    
+
 def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running):
     """跟踪和转向线程
     :param tracker: Tracker 实例
@@ -67,6 +76,9 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
     :param dt_queue: 共享队列，接收主进程的 dt 数据
     :param running: 运行标志
     """
+    yaw_history = deque(maxlen=4)  # 存储前四帧的 yaw 值
+    pitch_history = deque(maxlen=4)  # 存储前四帧的 pitch 值（仅为记录，实际不使用）
+
     while running.is_set():
         dt = 1/30  # 默认值，防止队列为空
         if not dt_queue.empty():
@@ -74,6 +86,25 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
         if not position_queue.empty():
             position = position_queue.get()
             yaw, pitch = tracker.track(position, dt)
+            
+            # 存储 yaw 和 pitch 值
+            yaw_history.append(yaw)
+            pitch_history.append(pitch)
+
+            if yaw is None or pitch is None:
+                # 当 yaw 或 pitch 为 None 时，计算 yaw 的平均值
+                valid_yaws = [y for y in yaw_history if y is not None]
+                if valid_yaws:  # 确保有有效数据
+                    yaw_avg = sum(valid_yaws) / len(valid_yaws)
+                    # 根据平均值正负决定电机转向
+                    yaw_angle = 5.0 if yaw_avg > 0 else -5.0  # 固定小角度旋转防止绕线
+                    try:
+                        stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw_angle, vel_rpm=100, acc=100, abs_mode=False)
+                        time.sleep(0.01)
+                    except Exception:
+                        pass
+                continue
+            
             if yaw != 0:
                 try:
                     stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw, vel_rpm=100, acc=100, abs_mode=False)
@@ -153,7 +184,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=1280, height=720, fps=30)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=1280, vfov=100)
+tracker = Tracker.Tracker(img_width=1280, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 20, yaw_tol = 1, pitch_tol = 1)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyUSB0', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyUSB0', baudrate=115200, timeout=0.001, motor_id=2)
 

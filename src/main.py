@@ -185,8 +185,8 @@ def main():
 cam = camera.Camera(index=0, format='MJPG', width=1280, height=720, fps=30)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
 tracker = Tracker.Tracker(img_width=1280, vfov=100, yaw_pid = 0.03, pitch_pid = 0.03, use_kf = True, frame_add = 20, yaw_tol = 1, pitch_tol = 1)
-stepper_yaw = Stepper.MotorController(port='/dev/ttyUSB0', baudrate=115200, timeout=0.001, motor_id=1)
-stepper_pitch = Stepper.MotorController(port='/dev/ttyUSB0', baudrate=115200, timeout=0.001, motor_id=2)
+stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
+stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 
 if __name__ == "__main__":
     main()

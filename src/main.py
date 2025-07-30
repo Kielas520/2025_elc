@@ -79,6 +79,7 @@ def main():
     last_time = time.time()  # 记录上一帧时间
     frame_count = 0  # 帧计数
     fps = 0  # 初始化 FPS
+    dt = 1/30
     while True:
         ret, frame = cam.cam.read()
         if not ret:
@@ -88,7 +89,7 @@ def main():
         update_hsv()
         if detector.task == 1:
             position = detector.task1(frame)
-            yaw, pitch = tracker.track1(position)  # 传递 dt 参数给 tracker
+            yaw, pitch = tracker.track1(position, dt)  # 传递 dt 参数给 tracker
             # print(yaw,pitch)
             result = detector.display(frame)
             # serial.send_data(yaw, pitch)
@@ -99,6 +100,7 @@ def main():
         current_time = time.time()
         frame_count += 1
         elapsed_time = current_time - last_time
+        dt = elapsed_time
         if elapsed_time >= 1.0:  # 每秒更新一次 FPS
             fps = frame_count / elapsed_time
             frame_count = 0
@@ -107,6 +109,8 @@ def main():
 
         if cv2.waitKey(1) == ord('q'):
             break
+    # 清理资源
+    cam.cam.release()
     cv2.destroyAllWindows()
 
 cam = camera.Camera(index=0

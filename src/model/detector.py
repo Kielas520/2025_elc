@@ -189,7 +189,7 @@ class Detector:
         显示处理结果，绘制板子、中心点和目标点。
         """
         img = frame.copy()
-        if self.task == 1:
+        if self.task == 0:
             # 绘制背景板（绿色）和中心点（红色）
             if len(self.board.points) == 4:
                 pts = np.array(self.board.points, np.int32)
@@ -199,7 +199,7 @@ class Detector:
                 if self.board.center is not None:
                     cv2.circle(img, (int(self.board.center[0]), int(self.board.center[1])), 5, (0, 255, 0), -1)
         
-        elif self.task == 2:
+        elif self.task == 1:
             # 绘制背景板（绿色）和中心点（红色）
             if len(self.board.points) == 4:
                 pts = np.array(self.board.points, np.int32)
@@ -236,5 +236,5 @@ class Detector:
         """
         mask = self.process(frame)
         self.board = self.find_board(mask)
-        target = self.get_circle(frame)  # 可调整 diameter_ratio
+        target = self.get_circle()  # 可调整 diameter_ratio
         return target

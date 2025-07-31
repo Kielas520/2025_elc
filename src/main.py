@@ -227,8 +227,7 @@ def main():
                     fps = frame_count / elapsed_time
                     frame_count = 0
                     last_time = current_time
-                    #print(f"FPS: {fps:.2f}")
-                print(detector.task)
+                    print(f"FPS: {fps:.2f}")
                 beat += 1
                 beat %= 255
 

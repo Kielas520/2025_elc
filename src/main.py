@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 import model.cam as camera
 import model.detector as Detector
 import model.tracker as Tracker
@@ -7,6 +6,7 @@ import model.stepper as Stepper
 import threading
 import time
 from collections import deque
+
 
 def nothing(x):
     pass
@@ -197,7 +197,7 @@ def main():
             print(f"Error closing pitch stepper: {str(e)}")
         cv2.destroyAllWindows()
 
-cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
+cam = camera.Camera(index=0, format='MJPG', width=720, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
 tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, yaw_pid=0.03, pitch_pid=0.03, use_kf=False, frame_add=0, yaw_tol=1, pitch_tol=1)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)

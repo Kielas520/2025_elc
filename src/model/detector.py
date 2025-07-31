@@ -177,7 +177,7 @@ class Detector:
         distance = math.sqrt((self.target[0] - self.frame_center[0])**2 + (self.target[1] - self.frame_center[1])**2)
 
         # 如果距离足够小（例如 < 10 像素），递增 circle_step
-        if distance < 0.5:
+        if distance < 5:
             self.circle_step = (self.circle_step + 1) % 360
 
         return self.target

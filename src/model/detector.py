@@ -14,7 +14,7 @@ class Detector:
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
 
-        self.task = 2
+        self.task = 1
 
         self.board_mask = None
         self.board_min_area = board_min_area
@@ -215,6 +215,13 @@ class Detector:
         self.result_img = img
         return img
 
+    def run(self, frame):
+        if self.task == 0:
+            center = self.task1(frame)
+        elif self.task == 1:
+            center = self.task2(frame)
+        return center
+    
     def task1(self, frame):
         mask = self.process(frame)
         self.board = self.find_board(mask)

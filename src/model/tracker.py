@@ -28,6 +28,8 @@ class Tracker:
         self.pitch_pid = pitch_pid
         self.yaw_tol = yaw_tol
         self.pitch_tol = pitch_tol
+
+        self.shoot = 0
         
 
     def update_dt(self, dt):
@@ -110,8 +112,8 @@ class Tracker:
         yaw, pitch = self.pixel_to_yaw_pitch(center)
         
         if abs(yaw) <= self.yaw_tol and abs(pitch) <= self.pitch_tol:
-            pass
+            self.shoot = True
         else:
-            pass
+            self.shoot = False
 
         return yaw, pitch

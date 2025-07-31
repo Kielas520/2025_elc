@@ -39,7 +39,6 @@ def init_board():
     cv2.createTrackbar('pitch_pid', 'Controls', 40, 3000, nothing)
     cv2.createTrackbar('yaw_tol', 'Controls', 1, 10, nothing)
     cv2.createTrackbar('pitch_tol', 'Controls', 1, 10, nothing)
-    cv2.createTrackbar('task', 'Controls', 0, 1, nothing)
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
 
@@ -57,7 +56,6 @@ def update_hsv():
     pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
     yaw_tol = cv2.getTrackbarPos('yaw_tol', 'Controls')
     pitch_tol = cv2.getTrackbarPos('pitch_tol', 'Controls')
-    task = cv2.getTrackbarPos('task', 'Controls')
     cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
 
@@ -66,7 +64,6 @@ def update_hsv():
     detector.diameter_ratio = diameter_ratio / 100
     detector.board_min_area = board_min_area
     detector.board_max_area = board_max_area
-    detector.task = task
     detector.cx_offset = cx_offset - 30
     detector.cy_offset = cy_offset - 30
 
@@ -147,9 +144,7 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
 
             # 检查任务切换输入
             new_task = task_switch.button_callback(detector.task)
-            if new_task is not None:  # 检测到任务切换
-                detector.task = new_task  # 更新 detector.task
-                time.sleep(0.1)  # 防抖延时
+            detector.task = new_task # 更新 detector.task
             
             if tracker.shoot == 0:
                 lazer.set_value(0)
@@ -232,8 +227,8 @@ def main():
                     fps = frame_count / elapsed_time
                     frame_count = 0
                     last_time = current_time
-                    print(f"FPS: {fps:.2f}")
-
+                    #print(f"FPS: {fps:.2f}")
+                print(detector.task)
                 beat += 1
                 beat %= 255
 
@@ -263,7 +258,7 @@ def main():
         cv2.destroyAllWindows()
 
 
-cam = camera.Camera(index=0, format='MJPG', width=720, height=480, fps=240)
+cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
 tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (0.04, 0, 0))
@@ -271,10 +266,10 @@ tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 
-heart_beat = GPIN(pin = 11, mode = 0)
-task_info = GPIN(pin = 13, mode = 0)
-task_switch = GPIN(pin = 15, mode = 1)
-lazer = GPIN(pin = 16, mode = 0)
+heart_beat = GPIN(pin = 13, mode = 1)
+task_info = GPIN(pin = 11, mode = 1)
+task_switch = GPIN(pin = 15, mode = 0)
+lazer = GPIN(pin = 16, mode = 1)
 
 if __name__ == "__main__":
     main()

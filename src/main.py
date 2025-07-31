@@ -39,6 +39,8 @@ def init_board():
     cv2.createTrackbar('yaw_tol', 'Controls', 1, 10, nothing)
     cv2.createTrackbar('pitch_tol', 'Controls', 1, 10, nothing)
     cv2.createTrackbar('task', 'Controls', 0, 1, nothing)
+    cv2.createTrackbar('cx_offset', 'Controls', -30, 30, nothing)
+    cv2.createTrackbar('cy_offset', 'Controls', -30, 30, nothing)
 
 def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -55,6 +57,8 @@ def update_hsv():
     yaw_tol = cv2.getTrackbarPos('yaw_tol', 'Controls')
     pitch_tol = cv2.getTrackbarPos('pitch_tol', 'Controls')
     task = cv2.getTrackbarPos('task', 'Controls')
+    cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
+    cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
 
     detector.board_lower = (h_min, s_min, v_min)
     detector.board_upper = (h_max, s_max, v_max)
@@ -62,6 +66,8 @@ def update_hsv():
     detector.board_min_area = board_min_area
     detector.board_max_area = board_max_area
     detector.task = task
+    detector.cx_offset = cx_offset
+    detector.cy_offset = cy_offset
 
     if yaw_pid != 0:
         tracker.yaw_pid = yaw_pid / 1000

@@ -9,7 +9,7 @@ class Board:
         self.center = None
         
 class Detector:
-    def __init__(self, board_color, board_min_area, board_max_area, diameter_ratio):
+    def __init__(self, board_color, board_min_area, board_max_area, diameter_ratio, cx_offset = 0, cy_offset = 0):
         self.std_square = np.float32([[0, 0], [30, 0], [30, 21], [0, 21]])
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
@@ -21,6 +21,8 @@ class Detector:
         self.board_max_area = board_max_area
         self.board = None
         
+        self.cx_offset = cx_offset
+        self.cy_offset = cy_offset
         self.diameter_ratio = diameter_ratio
         self.circle_step = 0
         self.result_img = None
@@ -32,7 +34,7 @@ class Detector:
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.board_lower, self.board_upper)
         self.board_mask = mask
-        self.frame_center = (frame.shape[1] / 2, frame.shape[0] / 2)
+        self.frame_center = (frame.shape[1] / 2 + self.cx_offset, frame.shape[0] / 2 + self.cy_offset)
         return mask
 
     def find_board(self, binary):
@@ -135,7 +137,7 @@ class Detector:
         board.center = center
         return center
 
-    def get_circle(self, frame):
+    def get_circle(self):
         """
         在变换后的板子上画圆，检查当前角度点是否接近屏幕中心，若接近则递增角度并计算新点坐标。
         参数：

@@ -25,11 +25,14 @@ class Detector:
         self.circle_step = 0
         self.result_img = None
         self.target = None
+        # 检查当前点与屏幕中心点的距离
+        self.frame_center = None
 
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.board_lower, self.board_upper)
         self.board_mask = mask
+        self.frame_center = (frame.shape[1] / 2, frame.shape[0] / 2)
         return mask
 
     def find_board(self, binary):
@@ -171,9 +174,7 @@ class Detector:
         target = cv2.perspectiveTransform(pt, M_inv)[0][0]
         self.target = tuple(target)
 
-        # 检查当前点与屏幕中心点的距离
-        frame_center = (frame.shape[1] / 2, frame.shape[0] / 2)  # 屏幕中心
-        distance = math.sqrt((self.target[0] - frame_center[0])**2 + (self.target[1] - frame_center[1])**2)
+        distance = math.sqrt((self.target[0] - self.frame_center[0])**2 + (self.target[1] - self.frame_center[1])**2)
 
         # 如果距离足够小（例如 < 10 像素），递增 circle_step
         if distance < 10:
@@ -208,7 +209,9 @@ class Detector:
             # 绘制目标点（橙色）
             if self.target is not None:
                 cv2.circle(img, (int(self.target[0]), int(self.target[1])), 5, (0, 165, 255), -1)
-        
+        if self.frame_center is not None:
+            # 屏幕中心点（绿色）
+            cv2.circle(img, (int(self.frame_center[0]), int(self.frame_center[1])), 5, (255, 0, 0), -1)
         self.result_img = img
         return img
 

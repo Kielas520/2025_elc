@@ -22,19 +22,18 @@ def init_board():
     cv2.namedWindow('Controls', cv2.WINDOW_FREERATIO)
     cv2.moveWindow('Controls', 0, 0)
     cv2.resizeWindow('Controls', 320, 400)
-    cv2.createTrackbar('H Min', 'Controls', 133, 179, nothing)
+    cv2.createTrackbar('H Min', 'Controls', 0, 179, nothing)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)
-    cv2.createTrackbar('S Min', 'Controls', 255, 255, nothing)
+    cv2.createTrackbar('S Min', 'Controls', 0, 255, nothing)
     cv2.createTrackbar('S Max', 'Controls', 255, 255, nothing)
-    cv2.createTrackbar('V Min', 'Controls', 6, 255, nothing)
-    cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing)
+    cv2.createTrackbar('V Min', 'Controls', 0, 255, nothing)
+    cv2.createTrackbar('V Max', 'Controls', 50, 255, nothing)
     cv2.createTrackbar('board_min_area', 'Controls', 18310, 307200, nothing)
     cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
     cv2.createTrackbar('yaw_pid', 'Controls', 40, 3000, nothing)
     cv2.createTrackbar('pitch_pid', 'Controls', 40, 3000, nothing)
-    cv2.createTrackbar('yaw_tol', 'Controls', 1, 10, nothing)
-    cv2.createTrackbar('pitch_tol', 'Controls', 1, 10, nothing)
+    cv2.createTrackbar('shoot_tol', 'Controls', 5, 20, nothing)
     cv2.createTrackbar('task', 'Controls', 0, 1, nothing)
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
@@ -51,8 +50,7 @@ def update_hsv():
     diameter_ratio = cv2.getTrackbarPos('diameter_ratio', 'Controls')
     yaw_pid = cv2.getTrackbarPos('yaw_pid', 'Controls')
     pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
-    yaw_tol = cv2.getTrackbarPos('yaw_tol', 'Controls')
-    pitch_tol = cv2.getTrackbarPos('pitch_tol', 'Controls')
+    shoot_tol = cv2.getTrackbarPos('shoot_tol', 'Controls')
     task = cv2.getTrackbarPos('task', 'Controls')
     cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
@@ -71,8 +69,7 @@ def update_hsv():
     if pitch_pid != 0:
         tracker.pitch_pid = pitch_pid / 1000
 
-    tracker.yaw_tol = yaw_tol
-    tracker.pitch_tol = pitch_tol
+    tracker.shoot_tol = shoot_tol
 
 def tracking_and_steering_thread(tracker, position_queue, dt_queue, running):
     """Tracking thread for testing (stepper motors disabled)
@@ -189,7 +186,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=720, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, yaw_pid=0.03, pitch_pid=0.03, use_kf=False, frame_add=0, yaw_tol=1, pitch_tol=1)
+tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (0.04, 0, 0))
 
 if __name__ == "__main__":
     main()

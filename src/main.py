@@ -4,6 +4,7 @@ import model.detector as Detector
 import model.tracker as Tracker
 import model.stepper as Stepper
 from model.status import GPIN
+import queue
 import threading
 import time
 from collections import deque
@@ -265,7 +266,7 @@ def main():
 cam = camera.Camera(index=0, format='MJPG', width=720, height=480, fps=240)
 
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, yaw_pid=0.03, pitch_pid=0.03, use_kf=False, frame_add=0, yaw_tol=1, pitch_tol=1)
+tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (0.04, 0, 0))
 
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
@@ -276,5 +277,4 @@ task_switch = GPIN(pin = 15, mode = 1)
 lazer = GPIN(pin = 16, mode = 0)
 
 if __name__ == "__main__":
-    import queue  # Moved import here to avoid global scope issues
     main()

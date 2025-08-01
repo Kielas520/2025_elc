@@ -200,7 +200,7 @@ def main():
                 if detector.task == 0:
                     position = detector.task1(frame)
                 elif detector.task == 1:
-                    position = detector.task2(frame)
+                    position = detector.task2(frame, tracker)
                 if position_queue.full():
                     position_queue.get()
                 position_queue.put(position)
@@ -208,9 +208,7 @@ def main():
                     result = detector.display(frame)
                     cv2.imshow('Mask', detector.board_mask)
                     cv2.imshow('Result', result)
-                # if tracker.shoot == 0:
-                #     lazer.set_value(0)
-                # elif tracker.shoot == 1:
+
                 print(tracker.shoot)
                 current_time = time.time()
                 frame_count += 1
@@ -256,7 +254,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.04, 0, 0))
+tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=1.0, offset_yaw=0.0)
 yaw_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)    # 初始化 PID 控制器
 pitch_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)

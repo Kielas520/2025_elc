@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import math
-
+from model.tracker import Tracker
 class Board:
     def __init__(self):
         self.points = []  # 四边形角点 [左上, 左下, 右下, 右上]
@@ -30,6 +30,7 @@ class Detector:
         self.target = None
         # 检查当前点与屏幕中心点的距离
         self.frame_center = None
+        self.lazer_center = None
 
     def process(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -138,6 +139,10 @@ class Detector:
         board.center = center
         return center
 
+    def get_lazer_pos(self, tracker):
+        self.lazer_center = tracker.get_laser_pixel_position()
+        return self.lazer_center
+
     def get_circle(self):
         """
         在变换后的板子上画圆，检查当前角度点是否接近屏幕中心，若接近则递增角度并计算新点坐标。
@@ -177,11 +182,11 @@ class Detector:
         target = cv2.perspectiveTransform(pt, M_inv)[0][0]
         self.target = tuple(target)
 
-        distance = math.sqrt((self.target[0] - self.frame_center[0])**2 + (self.target[1] - self.frame_center[1])**2)
+        distance = math.sqrt((self.target[0] - self.lazer_center[0])**2 + (self.target[1] - self.lazer_center[1])**2)
 
         # 如果距离足够小（例如 < 10 像素），递增 circle_step
         if distance < 5:
-            self.circle_step = (self.circle_step + 1) % 360
+            self.circle_step = (self.circle_step + 1) % 120
 
         return self.target
 
@@ -212,9 +217,9 @@ class Detector:
             # 绘制目标点（橙色）
             if self.target is not None:
                 cv2.circle(img, (int(self.target[0]), int(self.target[1])), 5, (0, 165, 255), -1)
-        if self.frame_center is not None:
+        if self.lazer_center is not None:
             # 屏幕中心点（绿色）
-            cv2.circle(img, (int(self.frame_center[0]), int(self.frame_center[1])), 5, (255, 0, 0), -1)
+            cv2.circle(img, (int(self.lazer_center[0]), int(self.lazer_center[1])), 5, (255, 0, 0), -1)
         self.result_img = img
         return img
 
@@ -231,11 +236,12 @@ class Detector:
         center = self.get_board_center(self.board)
         return center
 
-    def task2(self, frame):
+    def task2(self, frame, tracker):
         """
         检测光点和板子，使用稳定的板子进行跟踪，并计算圆周上的目标点。
         """
         mask = self.process(frame)
         self.board = self.find_board(mask)
+        self.get_lazer_pos(tracker)
         target = self.get_circle()  # 可调整 diameter_ratio
         return target

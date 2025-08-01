@@ -7,7 +7,7 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (0.04, 0, 0)):
+    def __init__(self, img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (-0.04, 0, 0)):
         self.img_width = img_width
         self.img_height = img_height
         self.vfov = vfov
@@ -30,7 +30,7 @@ class Tracker:
         self.shoot_tol = shoot_tol
         self.shoot = 0
         
-        self.ref_point = ref_point  # 单位：米, 激光相对于相机的位置（相机在激光左侧4厘米）
+        self.ref_point = ref_point  # 单位：米, 激光相对于相机的位置（相机在激光右侧4厘米）
 
     def update_dt(self, dt):
         """更新卡尔曼滤波器时间步长"""
@@ -178,4 +178,4 @@ class Tracker:
         # 使用 arrived 判断是否触发射击
         self.shoot = arrived
 
-        return relative_yaw, relative_pitch
+        return relative_yaw * self.yaw_pid, relative_pitch * self.pitch_pid

@@ -14,7 +14,7 @@ class Detector:
         self.board_lower = board_color[0]
         self.board_upper = board_color[1]
 
-        self.task = 1
+        self.task = 0
 
         self.board_mask = None
         self.board_min_area = board_min_area
@@ -25,6 +25,7 @@ class Detector:
         self.cy_offset = cy_offset
         self.diameter_ratio = diameter_ratio
         self.circle_step = 0
+        self.show_img = 0
         self.result_img = None
         self.target = None
         # 检查当前点与屏幕中心点的距离

@@ -37,10 +37,9 @@ def init_board():
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
     cv2.createTrackbar('yaw_pid', 'Controls', 40, 3000, nothing)
     cv2.createTrackbar('pitch_pid', 'Controls', 40, 3000, nothing)
-    cv2.createTrackbar('yaw_tol', 'Controls', 1, 10, nothing)
-    cv2.createTrackbar('pitch_tol', 'Controls', 1, 10, nothing)
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
+    cv2.createTrackbar('show', 'Controls', 0, 1, nothing)
 
 def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -54,10 +53,9 @@ def update_hsv():
     diameter_ratio = cv2.getTrackbarPos('diameter_ratio', 'Controls')
     yaw_pid = cv2.getTrackbarPos('yaw_pid', 'Controls')
     pitch_pid = cv2.getTrackbarPos('pitch_pid', 'Controls')
-    yaw_tol = cv2.getTrackbarPos('yaw_tol', 'Controls')
-    pitch_tol = cv2.getTrackbarPos('pitch_tol', 'Controls')
     cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
+    show = cv2.getTrackbarPos('show', 'Controls')
 
     detector.board_lower = (h_min, s_min, v_min)
     detector.board_upper = (h_max, s_max, v_max)
@@ -66,14 +64,14 @@ def update_hsv():
     detector.board_max_area = board_max_area
     detector.cx_offset = cx_offset - 30
     detector.cy_offset = cy_offset - 30
-
+    detector.show_img = show
+    
     if yaw_pid != 0:
         tracker.yaw_pid = yaw_pid / 1000
     if pitch_pid != 0:
         tracker.pitch_pid = pitch_pid / 1000
 
-    tracker.yaw_tol = yaw_tol
-    tracker.pitch_tol = pitch_tol
+    
 
 def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running):
     """Tracking and steering thread
@@ -84,8 +82,6 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
     :param dt_queue: Shared queue for dt data
     :param running: Running flag
     """
-    yaw_history = deque(maxlen=4)  # Store last 4 yaw values
-    pitch_history = deque(maxlen=4)  # Store last 4 pitch values
 
     while running.is_set():
         try:
@@ -97,9 +93,6 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
                 position = position_queue.get()
                 yaw, pitch = tracker.track(position, dt)
                 
-                yaw_history.append(yaw)
-                pitch_history.append(pitch)
-
                 if yaw is None or pitch is None:
                     yaw = 0
                     pitch = 0
@@ -136,7 +129,6 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
         while running.is_set():
             # 心跳 LED 闪烁
             heart_beat.flash()  # 使用 flash 方法，约 1 秒周期
-            time.sleep(0.05)    # 20 * 0.05s = 1s 闪烁周期
 
             # 显示 detector 的 task 属性
             if detector.task in [0, 1]:  # 确保任务值有效
@@ -159,7 +151,7 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
         # 清理 GPIO 引脚状态
         heart_beat.set_value(0)
         task_info.set_value(0)
-
+        lazer.set_value(0)
 def main():
     init_board()
     if not cam.cam.isOpened():
@@ -209,10 +201,10 @@ def main():
                 if position_queue.full():
                     position_queue.get()  # 清除旧数据
                 position_queue.put(position)  # 将位置数据传递给线程
-
-                result = detector.display(frame)
-                cv2.imshow('Mask', detector.board_mask)
-                cv2.imshow('Result', result)
+                if detector.show_img == 1:
+                    result = detector.display(frame)
+                    cv2.imshow('Mask', detector.board_mask)
+                    cv2.imshow('Result', result)
 
                 current_time = time.time()
                 frame_count += 1
@@ -260,7 +252,7 @@ def main():
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (0.04, 0, 0))
+tracker = Tracker.Tracker(img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (-0.04, 0, 0))
 
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)

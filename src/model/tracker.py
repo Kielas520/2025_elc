@@ -7,7 +7,7 @@ RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width = 640, img_height = 480, vfov = 100, yaw_pid = 0.003, pitch_pid = 0.003, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (-0.04, 0, 0)):
+    def __init__(self, img_width = 640, img_height = 480, vfov = 100, use_kf = False, frame_add = 20, shoot_tol = 5, ref_point = (-0.04, 0, 0)):
         self.img_width = img_width
         self.img_height = img_height
         self.vfov = vfov
@@ -17,6 +17,7 @@ class Tracker:
         self.predict = False  # 是否处于预测状态
         self.if_find = False  # 是否找到目标
 
+        self.if_lost = False
         self.use_kf = use_kf  # 是否使用卡尔曼滤波
         # 初始化卡尔曼滤波器
         self.kf_cx = KalmanFilter()  # x 坐标滤波器
@@ -25,8 +26,6 @@ class Tracker:
         self.kf_cx.dt = 1 / 30
         self.kf_cy.dt = 1 / 30
 
-        self.yaw_pid = yaw_pid
-        self.pitch_pid = pitch_pid
         self.shoot_tol = shoot_tol
         self.shoot = 0
         
@@ -137,38 +136,64 @@ class Tracker:
 
         return relative_pitch, relative_yaw, arrived
 
+    # def track(self, center, dt):
+    #     """跟踪目标并计算相对于激光的俯仰角和偏航角"""
+    #     if center is None:
+    #         # 没有检测到目标
+    #         if self.use_kf:
+    #             self.lost += 1
+    #             if self.lost <= self.frame_add and self.predict:
+    #                 self.update_dt(dt)  # 更新时间步长
+    #                 self.kf_predict()  # 预测下一步
+    #                 center = self.get_kf_state()  # 获取预测的中心点
+    #                 self.if_find = True
+    #             else:
+    #                 print("未检测到目标")
+    #                 self.reset_kf()  # 重置滤波器
+    #                 self.lost = 0
+    #                 self.predict = False
+    #                 self.if_find = False
+    #                 return None, None
+    #         else:
+    #             print("未检测到目标")
+    #             self.if_find = False
+    #             return None, None
+    #     else:
+    #         # 检测到目标
+    #         self.predict = True
+    #         self.if_find = True
+    #         self.lost = 0
+    #         if self.use_kf:
+    #             self.update_dt(dt)  # 更新时间步长
+    #             self.kf_update(center)  # 更新滤波器
+    #             self.kf_predict()  # 预测下一步
+    #             center = self.get_kf_state()  # 获取滤波后的中心点
+
+    #     # 直接使用 center 作为像素坐标 (u, v)
+    #     pixel_point = center
+    #     # 计算相对于激光的俯仰角和偏航角
+    #     relative_pitch, relative_yaw, arrived = self.calculate_relative_angles(pixel_point, self.ref_point, self.shoot_tol)
+
+    #     # 使用 arrived 判断是否触发射击
+    #     self.shoot = arrived
+
+    #     return relative_yaw, relative_pitch
+    
     def track(self, center, dt):
         """跟踪目标并计算相对于激光的俯仰角和偏航角"""
         if center is None:
             # 没有检测到目标
-            if self.use_kf:
-                self.lost += 1
-                if self.lost <= self.frame_add and self.predict:
-                    self.update_dt(dt)  # 更新时间步长
-                    self.kf_predict()  # 预测下一步
-                    center = self.get_kf_state()  # 获取预测的中心点
-                    self.if_find = True
-                else:
-                    print("未检测到目标")
-                    self.reset_kf()  # 重置滤波器
-                    self.lost = 0
-                    self.predict = False
-                    self.if_find = False
-                    return None, None
+            self.lost += 1
+            if self.lost <= self.frame_add:
+                self.if_lost = False
+                return None, None
             else:
                 print("未检测到目标")
-                self.if_find = False
+                self.if_lost = True
                 return None, None
         else:
-            # 检测到目标
-            self.predict = True
-            self.if_find = True
             self.lost = 0
-            if self.use_kf:
-                self.update_dt(dt)  # 更新时间步长
-                self.kf_update(center)  # 更新滤波器
-                self.kf_predict()  # 预测下一步
-                center = self.get_kf_state()  # 获取滤波后的中心点
+            self.if_lost = False
 
         # 直接使用 center 作为像素坐标 (u, v)
         pixel_point = center
@@ -178,4 +203,4 @@ class Tracker:
         # 使用 arrived 判断是否触发射击
         self.shoot = arrived
 
-        return relative_yaw * self.yaw_pid, relative_pitch * self.pitch_pid
+        return relative_yaw, relative_pitch

@@ -97,21 +97,19 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
     """
     current_yaw_angle = 0  # 假设初始角度为 0
     current_pitch_angle = 0
-
     while running.is_set():
         try:
             dt = 1/30  # 默认时间步长
             if not dt_queue.empty():
                 dt = dt_queue.get()  # 获取最新 dt
 
+            if tracker.if_lost == True:
+                stepper_yaw.emm_v5_move_to_angle(angle_deg=270, vel_rpm=1, acc=0, abs_mode=True)
+                continue
+            
             if not position_queue.empty():
                 position = position_queue.get()
                 target_yaw, target_pitch = tracker.track(position, dt)
-
-                if target_yaw is None or target_pitch is None:
-                    target_yaw = 0
-                    target_pitch = 0
-                    continue
 
                 # 计算 yaw 误差并更新 PID 控制
                 yaw_error = target_yaw - current_yaw_angle
@@ -265,7 +263,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, yaw_pid=0.003, pitch_pid=0.003, use_kf=False, frame_add=20, shoot_tol=5, ref_point=(-0.04, 0, 0))
+tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.04, 0, 0))
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)

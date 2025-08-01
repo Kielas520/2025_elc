@@ -147,6 +147,10 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
                 task_info.set_value(1 if detector.task > 0 else 0)
             new_task = task_switch.button_callback(detector.task)
             detector.task = new_task
+            if tracker.shoot == False:
+                lazer.set_value(0)
+            elif tracker.shoot == True:
+                lazer.set_value(1)
             
     except Exception as e:
         print(f"决策线程错误: {str(e)}")
@@ -259,8 +263,8 @@ stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeou
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)
 task_info = GPIN(pin=11, mode=1)
-task_switch = GPIN(pin=15, mode=0)
 lazer = GPIN(pin=16, mode=1)
+task_switch = GPIN(pin=15, mode=0)
 
 if __name__ == "__main__":
     main()

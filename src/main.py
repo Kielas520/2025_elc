@@ -9,7 +9,7 @@ import threading
 import time
 from collections import deque
 import Hobot.GPIO as GPIO
-from pid_controller import PIDController
+from model.pid import PIDController
 
 def nothing(x):
     pass
@@ -110,7 +110,8 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
             if not position_queue.empty():
                 position = position_queue.get()
                 target_yaw, target_pitch = tracker.track(position, dt)
-
+                if target_yaw is None or target_pitch is None:
+                    continue
                 # 计算 yaw 误差并更新 PID 控制
                 yaw_error = target_yaw - current_yaw_angle
                 yaw_output = yaw_pid_controller.update(yaw_error, dt)
@@ -170,10 +171,6 @@ def main():
         print("Camera open failed")
         return
 
-    # 初始化 PID 控制器
-    yaw_pid_controller = PIDController(Kp=tracker.yaw_pid, Ki=0.0, Kd=0.0, dt=1/30)
-    pitch_pid_controller = PIDController(Kp=tracker.pitch_pid, Ki=0.0, Kd=0.0, dt=1/30)
-
     position_queue = queue.Queue(maxsize=1)
     dt_queue = queue.Queue(maxsize=1)
     running = threading.Event()
@@ -210,7 +207,6 @@ def main():
                     position = detector.task1(frame)
                 elif detector.task == 1:
                     position = detector.task2(frame)
-                
                 if position_queue.full():
                     position_queue.get()
                 position_queue.put(position)
@@ -264,6 +260,8 @@ def main():
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
 tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.04, 0, 0))
+yaw_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)    # 初始化 PID 控制器
+pitch_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)

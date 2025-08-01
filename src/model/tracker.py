@@ -75,7 +75,7 @@ class Tracker:
         pitch = math.atan(center[1] / focal_pixel_distance) * RAD2DEG
         return yaw, pitch
 
-    def calculate_relative_angles(self, pixel_point, ref_point, pixel_threshold=10):
+    def calculate_relative_angles(self, pixel_point, ref_point):
         """
         计算从参考点指向图像中某个像素的相对俯仰角和偏航角，
         并判断该像素是否靠近画面中心（像素级判断）
@@ -108,7 +108,8 @@ class Tracker:
 
         # 判断像素点是否接近画面中心
         pixel_distance = np.sqrt((u - cx) ** 2 + (v - cy) ** 2)
-        arrived = pixel_distance < pixel_threshold
+        if pixel_distance < self.shoot_tol:
+            arrived = True
 
         # 归一化图像坐标（范围：[-1, 1]）
         norm_x = (u - cx) / (width / 2)
@@ -189,7 +190,7 @@ class Tracker:
                 return None, None
             else:
                 print("未检测到目标")
-                self.if_lost = True
+                # self.if_lost = True
                 return None, None
         else:
             self.lost = 0
@@ -198,9 +199,9 @@ class Tracker:
         # 直接使用 center 作为像素坐标 (u, v)
         pixel_point = center
         # 计算相对于激光的俯仰角和偏航角
-        relative_pitch, relative_yaw, arrived = self.calculate_relative_angles(pixel_point, self.ref_point, self.shoot_tol)
+        relative_pitch, relative_yaw, arrived = self.calculate_relative_angles(pixel_point, self.ref_point)
 
         # 使用 arrived 判断是否触发射击
         self.shoot = arrived
 
-        return relative_yaw, relative_pitch
+        return -relative_yaw, -relative_pitch

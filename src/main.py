@@ -44,6 +44,7 @@ def init_board():
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('show', 'Controls', 0, 1, nothing)
+    cv2.createTrackbar('shoot_tol', 'Controls', 10, 200, nothing)
 
 def update_hsv(yaw_pid_controller, pitch_pid_controller):
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -64,6 +65,7 @@ def update_hsv(yaw_pid_controller, pitch_pid_controller):
     cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
     show = cv2.getTrackbarPos('show', 'Controls')
+    shoot_tol = cv2.getTrackbarPos('shoot_tol', 'Controls')
 
     detector.board_lower = (h_min, s_min, v_min)
     detector.board_upper = (h_max, s_max, v_max)
@@ -73,16 +75,18 @@ def update_hsv(yaw_pid_controller, pitch_pid_controller):
     detector.cx_offset = cx_offset - 30
     detector.cy_offset = cy_offset - 30
     detector.show_img = show
-    
+
+    tracker.shoot_tol = shoot_tol
+
     # 更新 PID 控制器的参数
     if yaw_Kp != 0:
-        yaw_pid_controller.set_Kp(yaw_Kp / 1000)  # 缩放到 0-3
-    yaw_pid_controller.set_Ki(yaw_Ki / 1000)      # 缩放到 0-0.1
-    yaw_pid_controller.set_Kd(yaw_Kd / 1000)      # 缩放到 0-0.1
+        yaw_pid_controller.Kp = yaw_Kp / 3000  # 缩放到 0-3
+    yaw_pid_controller.Ki= yaw_Ki      # 缩放到 0-0.1
+    yaw_pid_controller.Kd = yaw_Kd      # 缩放到 0-0.1
     if pitch_Kp != 0:
-        pitch_pid_controller.set_Kp(pitch_Kp / 1000)  # 缩放到 0-3
-    pitch_pid_controller.set_Ki(pitch_Ki / 1000)      # 缩放到 0-0.1
-    pitch_pid_controller.set_Kd(pitch_Kd / 1000)      # 缩放到 0-0.1
+        pitch_pid_controller.Kp = pitch_Kp / 3000 # 缩放到 0-3
+    pitch_pid_controller.Ki = pitch_Ki      # 缩放到 0-0.1
+    pitch_pid_controller.Kd = pitch_Kd      # 缩放到 0-0.1
 
 def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running, yaw_pid_controller, pitch_pid_controller):
     """跟踪和转向线程，实现 PID 闭环控制
@@ -95,8 +99,6 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
     :param yaw_pid_controller: Yaw 的 PID 控制器
     :param pitch_pid_controller: Pitch 的 PID 控制器
     """
-    current_yaw_angle = 0  # 假设初始角度为 0
-    current_pitch_angle = 0
     while running.is_set():
         try:
             dt = 1/30  # 默认时间步长
@@ -112,24 +114,15 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
                 target_yaw, target_pitch = tracker.track(position, dt)
                 if target_yaw is None or target_pitch is None:
                     continue
-                # 计算 yaw 误差并更新 PID 控制
-                yaw_error = target_yaw - current_yaw_angle
-                yaw_output = yaw_pid_controller.update(yaw_error, dt)
-                if abs(yaw_output) > 0.01:  # 避免微小调整
+            
+                if abs(target_yaw) > 0.01:  # 避免微小调整
                     try:
-                        current_yaw_angle += yaw_output
-                        stepper_yaw.emm_v5_move_to_angle(angle_deg=yaw_output, vel_rpm=1, acc=0, abs_mode=False)
+                        stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_pid_controller.Kp, vel_rpm=yaw_pid_controller.Ki, acc=yaw_pid_controller.Kd, abs_mode=False)
                         time.sleep(0.01)
                     except Exception as e:
                         print(f"Yaw 电机错误: {str(e)}")
-
-                # 计算 pitch 误差并更新 PID 控制
-                pitch_error = target_pitch - current_pitch_angle
-                pitch_output = pitch_pid_controller.update(pitch_error, dt)
-                if abs(pitch_output) > 0.01:  # 避免微小调整
                     try:
-                        current_pitch_angle += pitch_output
-                        stepper_pitch.emm_v5_move_to_angle(angle_deg=pitch_output, vel_rpm=1, acc=0, abs_mode=False)
+                        stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_pid_controller.Kp, vel_rpm=pitch_pid_controller.Ki, acc=pitch_pid_controller.Kd, abs_mode=False)
                         time.sleep(0.01)
                     except Exception as e:
                         print(f"Pitch 电机错误: {str(e)}")
@@ -154,10 +147,7 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
                 task_info.set_value(1 if detector.task > 0 else 0)
             new_task = task_switch.button_callback(detector.task)
             detector.task = new_task
-            if tracker.shoot == 0:
-                lazer.set_value(0)
-            elif tracker.shoot == 1:
-                lazer.set_value(1)
+            
     except Exception as e:
         print(f"决策线程错误: {str(e)}")
     finally:
@@ -214,7 +204,10 @@ def main():
                     result = detector.display(frame)
                     cv2.imshow('Mask', detector.board_mask)
                     cv2.imshow('Result', result)
-
+                # if tracker.shoot == 0:
+                #     lazer.set_value(0)
+                # elif tracker.shoot == 1:
+                print(tracker.shoot)
                 current_time = time.time()
                 frame_count += 1
                 dt = current_time - last_frame_time

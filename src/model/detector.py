@@ -143,7 +143,7 @@ class Detector:
         self.lazer_center = tracker.get_laser_pixel_position()
         return self.lazer_center
 
-    def get_circle(self):
+    def get_circle(self, tracker):
         """
         在变换后的板子上画圆，检查当前角度点是否接近屏幕中心，若接近则递增角度并计算新点坐标。
         参数：
@@ -182,10 +182,7 @@ class Detector:
         target = cv2.perspectiveTransform(pt, M_inv)[0][0]
         self.target = tuple(target)
 
-        distance = math.sqrt((self.target[0] - self.lazer_center[0])**2 + (self.target[1] - self.lazer_center[1])**2)
-
-        # 如果距离足够小（例如 < 10 像素），递增 circle_step
-        if distance < 5:
+        if tracker.shoot == True:
             self.circle_step = (self.circle_step + 1) % 120
 
         return self.target
@@ -217,9 +214,9 @@ class Detector:
             # 绘制目标点（橙色）
             if self.target is not None:
                 cv2.circle(img, (int(self.target[0]), int(self.target[1])), 5, (0, 165, 255), -1)
-        if self.lazer_center is not None:
+        if self.frame_center is not None:
             # 屏幕中心点（绿色）
-            cv2.circle(img, (int(self.lazer_center[0]), int(self.lazer_center[1])), 5, (255, 0, 0), -1)
+            cv2.circle(img, (int(self.frame_center[0]), int(self.frame_center[1])), 5, (255, 0, 0), -1)
         self.result_img = img
         return img
 
@@ -242,6 +239,5 @@ class Detector:
         """
         mask = self.process(frame)
         self.board = self.find_board(mask)
-        self.get_lazer_pos(tracker)
-        target = self.get_circle()  # 可调整 diameter_ratio
+        target = self.get_circle(tracker)  # 可调整 diameter_ratio
         return target

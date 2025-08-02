@@ -9,7 +9,6 @@ import threading
 import time
 from collections import deque
 import Hobot.GPIO as GPIO
-from model.pid import PIDController
 
 def nothing(x):
     pass
@@ -25,7 +24,7 @@ def init_board():
 
     cv2.namedWindow('Controls', cv2.WINDOW_FREERATIO)
     cv2.moveWindow('Controls', 0, 0)
-    cv2.resizeWindow('Controls', 320, 500)  # 增加窗口高度以容纳更多轨迹条
+    cv2.resizeWindow('Controls', 320, 500)
     cv2.createTrackbar('H Min', 'Controls', 0, 179, nothing)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)
     cv2.createTrackbar('S Min', 'Controls', 0, 255, nothing)
@@ -35,18 +34,16 @@ def init_board():
     cv2.createTrackbar('board_min_area', 'Controls', 11310, 307200, nothing)
     cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
-    cv2.createTrackbar('yaw_Kp', 'Controls', 40, 3000, nothing)  # 比例增益
-    cv2.createTrackbar('yaw_Ki', 'Controls', 0, 100, nothing)    # 积分增益
-    cv2.createTrackbar('yaw_Kd', 'Controls', 0, 100, nothing)    # 微分增益
-    cv2.createTrackbar('pitch_Kp', 'Controls', 40, 3000, nothing)  # 比例增益
-    cv2.createTrackbar('pitch_Ki', 'Controls', 0, 100, nothing)   # 积分增益
-    cv2.createTrackbar('pitch_Kd', 'Controls', 0, 100, nothing)   # 微分增益
+    cv2.createTrackbar('yaw_kp', 'Controls', 100, 1000, nothing)  # 偏航角倍率: 0-10
+    cv2.createTrackbar('pitch_kp', 'Controls', 100, 1000, nothing)  # 俯仰角倍率: 0-10
+    cv2.createTrackbar('vel_rpm', 'Controls', 1000, 5000, nothing)  # 速度: 0-5000 RPM
+    cv2.createTrackbar('acc', 'Controls', 50, 255, nothing)  # 加速度: 0-255
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('show', 'Controls', 0, 1, nothing)
     cv2.createTrackbar('shoot_tol', 'Controls', 10, 200, nothing)
 
-def update_hsv(yaw_pid_controller, pitch_pid_controller):
+def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
     h_max = cv2.getTrackbarPos('H Max', 'Controls')
     s_min = cv2.getTrackbarPos('S Min', 'Controls')
@@ -56,12 +53,10 @@ def update_hsv(yaw_pid_controller, pitch_pid_controller):
     board_min_area = cv2.getTrackbarPos('board_min_area', 'Controls')
     board_max_area = cv2.getTrackbarPos('board_max_area', 'Controls')
     diameter_ratio = cv2.getTrackbarPos('diameter_ratio', 'Controls')
-    yaw_Kp = cv2.getTrackbarPos('yaw_Kp', 'Controls')
-    yaw_Ki = cv2.getTrackbarPos('yaw_Ki', 'Controls')
-    yaw_Kd = cv2.getTrackbarPos('yaw_Kd', 'Controls')
-    pitch_Kp = cv2.getTrackbarPos('pitch_Kp', 'Controls')
-    pitch_Ki = cv2.getTrackbarPos('pitch_Ki', 'Controls')
-    pitch_Kd = cv2.getTrackbarPos('pitch_Kd', 'Controls')
+    yaw_kp = cv2.getTrackbarPos('yaw_kp', 'Controls')
+    pitch_kp = cv2.getTrackbarPos('pitch_kp', 'Controls')
+    vel_rpm = cv2.getTrackbarPos('vel_rpm', 'Controls')
+    acc = cv2.getTrackbarPos('acc', 'Controls')
     cx_offset = cv2.getTrackbarPos('cx_offset', 'Controls')
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
     show = cv2.getTrackbarPos('show', 'Controls')
@@ -78,65 +73,42 @@ def update_hsv(yaw_pid_controller, pitch_pid_controller):
 
     tracker.shoot_tol = shoot_tol
 
-    # 更新 PID 控制器的参数
-    if yaw_Kp != 0:
-        yaw_pid_controller.Kp = yaw_Kp / 3000  # 缩放到 0-3
-    yaw_pid_controller.Ki= yaw_Ki      # 缩放到 0-0.1
-    yaw_pid_controller.Kd = yaw_Kd      # 缩放到 0-0.1
-    if pitch_Kp != 0:
-        pitch_pid_controller.Kp = pitch_Kp / 3000 # 缩放到 0-3
-    pitch_pid_controller.Ki = pitch_Ki      # 缩放到 0-0.1
-    pitch_pid_controller.Kd = pitch_Kd      # 缩放到 0-0.1
+    return yaw_kp / 100.0, pitch_kp / 100.0, vel_rpm, acc
 
-def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running, yaw_pid_controller, pitch_pid_controller):
-    """跟踪和转向线程，实现 PID 闭环控制
-    :param tracker: Tracker 实例
-    :param stepper_yaw: Stepper.MotorController 实例 (yaw)
-    :param stepper_pitch: Stepper.MotorController 实例 (pitch)
-    :param position_queue: 检测器位置数据的共享队列
-    :param dt_queue: 时间步长数据的共享队列
-    :param running: 运行标志
-    :param yaw_pid_controller: Yaw 的 PID 控制器
-    :param pitch_pid_controller: Pitch 的 PID 控制器
-    """
+def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running):
+    """跟踪和转向线程，使用 kp 倍率控制"""
     while running.is_set():
         try:
-            dt = 1/30  # 默认时间步长
+            dt = 1/30
             if not dt_queue.empty():
-                dt = dt_queue.get()  # 获取最新 dt
+                dt = dt_queue.get()
 
-            #f tracker.if_lost == True:
-                # stepper_yaw.emm_v5_move_to_angle(angle_deg=270, vel_rpm=1, acc=0, abs_mode=True)
-            
             if not position_queue.empty():
                 position = position_queue.get()
                 target_yaw, target_pitch = tracker.track(position, dt)
-            
-                if abs(target_yaw) > 0:  # 避免微小调整
+
+                # 获取控制参数
+                yaw_kp, pitch_kp, vel_rpm, acc = update_hsv()
+
+                if abs(target_yaw) > 0.1:  # 避免微小调整
                     try:
-                        stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_pid_controller.Kp, vel_rpm=yaw_pid_controller.Ki, acc=yaw_pid_controller.Kd, abs_mode=False)
-                        time.sleep(0.01)
+                        stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
                     except Exception as e:
                         print(f"Yaw 电机错误: {str(e)}")
+                if abs(target_pitch) > 0.1:
                     try:
-                        stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_pid_controller.Kp, vel_rpm=pitch_pid_controller.Ki, acc=pitch_pid_controller.Kd, abs_mode=False)
-                        time.sleep(0.01)
+                        stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
                     except Exception as e:
                         print(f"Pitch 电机错误: {str(e)}")
 
         except Exception as e:
             print(f"跟踪线程错误: {str(e)}")
 
-        time.sleep(0.001)  # 减少 CPU 使用率
+        # 移除 time.sleep 以提高频率
+        # time.sleep(0.0001)  # 可选：如果 CPU 使用率过高，可尝试 0.1ms
 
 def decision(running, detector, tracker, heart_beat, task_info, task_switch, lazer):
-    """决策线程，用于处理心跳、任务信息显示和任务切换
-    :param running: 线程事件，用于控制线程执行
-    :param detector: Detector 实例，用于访问和修改任务属性
-    :param heart_beat: GPIN 实例，用于心跳 LED
-    :param task_info: GPIN 实例，用于任务状态显示
-    :param task_switch: GPIN 实例，用于任务切换输入
-    """
+    """决策线程，用于处理心跳、任务信息显示和任务切换"""
     try:
         while running.is_set():
             heart_beat.flash()
@@ -144,9 +116,9 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
                 task_info.set_value(1 if detector.task > 0 else 0)
             new_task = task_switch.button_callback(detector.task)
             detector.task = new_task
-            if tracker.shoot == False:
+            if not tracker.shoot:
                 lazer.set_value(0)
-            elif tracker.shoot == True:
+            else:
                 lazer.set_value(1)
             
     except Exception as e:
@@ -168,7 +140,7 @@ def main():
     running.set()
 
     tracking_thread = threading.Thread(target=tracking_and_steering_thread, 
-                                     args=(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running, yaw_pid_controller, pitch_pid_controller))
+                                     args=(tracker, stepper_yaw, stepper_pitch, position_queue, dt_queue, running))
     tracking_thread.daemon = True
     tracking_thread.start()
 
@@ -192,7 +164,7 @@ def main():
                     print("Failed to read frame")
                     break
 
-                update_hsv(yaw_pid_controller, pitch_pid_controller)
+                update_hsv()
 
                 if detector.task == 0:
                     position = detector.task1(frame)
@@ -251,9 +223,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=1.0, offset_yaw=0.0)
-yaw_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)    # 初始化 PID 控制器
-pitch_pid_controller = PIDController(Kp=0, Ki=0.0, Kd=0.0, dt=1/30)
+tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=1.0, offset_yaw=0.0, is_mirrored=False)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)

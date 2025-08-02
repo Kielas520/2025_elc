@@ -1,37 +1,32 @@
 import math
-from model.Kalman import KalmanFilter 
 import numpy as np
+from model.Kalman import KalmanFilter
 
 # 定义常量, 弧度转角度
 RAD2DEG = 180 / math.pi
 DEG2RAD = math.pi / 180
 
 class Tracker:
-    def __init__(self, img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=20, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=0.0, offset_yaw=0.0):
+    def __init__(self, img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=20, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=0.0, offset_yaw=0.0, is_mirrored=False):
         self.img_width = img_width
         self.img_height = img_height
         self.vfov = vfov
-
-        self.frame_add = frame_add  # 补帧数
-        self.lost = 0  # 丢失帧计数
-        self.predict = False  # 是否处于预测状态
-        self.if_find = False  # 是否找到目标
-
+        self.is_mirrored = is_mirrored  # 是否镜像
+        self.frame_add = frame_add
+        self.lost = 0
+        self.predict = False
+        self.if_find = False
         self.if_lost = False
-        self.use_kf = use_kf  # 是否使用卡尔曼滤波
-        # 初始化卡尔曼滤波器
-        self.kf_cx = KalmanFilter()  # x 坐标滤波器
-        self.kf_cy = KalmanFilter()  # y 坐标滤波器
-        
+        self.use_kf = use_kf
+        self.kf_cx = KalmanFilter()
+        self.kf_cy = KalmanFilter()
         self.kf_cx.dt = 1 / 30
         self.kf_cy.dt = 1 / 30
-
         self.shoot_tol = shoot_tol
         self.shoot = 0
-        
-        self.ref_point = ref_point  # 单位：米, 激光相对于相机的位置（相机在激光右侧3厘米）
-        self.offset_pitch = offset_pitch  # 相机相对于激光的俯仰角偏移（度）
-        self.offset_yaw = offset_yaw  # 相机相对于激光的偏航角偏移（度）
+        self.ref_point = ref_point
+        self.offset_pitch = offset_pitch
+        self.offset_yaw = offset_yaw
 
     def update_dt(self, dt):
         """更新卡尔曼滤波器时间步长"""
@@ -62,7 +57,7 @@ class Tracker:
         转换目标点坐标，以图像中心为原点
         """
         if center is None:
-            return (0, 0)  # 默认坐标
+            return (0, 0)
         rel_x = center[0] - self.img_width / 2
         rel_y = center[1] - self.img_height / 2
         return (-rel_x, rel_y)
@@ -77,10 +72,58 @@ class Tracker:
         pitch = math.atan(center[1] / focal_pixel_distance) * RAD2DEG
         return yaw, pitch
 
+    def get_laser_pixel_position(self):
+        """
+        计算激光在屏幕上的像素位置
+        """
+        if not (isinstance(self.ref_point, (tuple, list, np.ndarray)) and len(self.ref_point) == 3):
+            raise ValueError("ref_point 必须是长度为3的 (X, Y, Z) 坐标")
+
+        laser_pos = np.array(self.ref_point, dtype=np.float32)
+
+        yaw_rad = self.offset_yaw * DEG2RAD
+        cos_yaw = np.cos(yaw_rad)
+        sin_yaw = np.sin(yaw_rad)
+        R_y_inv = np.array([
+            [cos_yaw, 0, -sin_yaw],
+            [0, 1, 0],
+            [sin_yaw, 0, cos_yaw]
+        ], dtype=np.float32)
+
+        pitch_rad = self.offset_pitch * DEG2RAD
+        cos_pitch = np.cos(pitch_rad)
+        sin_pitch = np.sin(pitch_rad)
+        R_x_inv = np.array([
+            [1, 0, 0],
+            [0, cos_pitch, sin_pitch],
+            [0, -sin_pitch, cos_pitch]
+        ], dtype=np.float32)
+
+        R_inv = R_y_inv @ R_x_inv
+        laser_pos = R_inv @ laser_pos
+
+        fov_h = self.vfov
+        fov_v = self.vfov * self.img_height / self.img_width
+
+        norm_x = laser_pos[0] / (laser_pos[2] * np.tan(np.radians(fov_h / 2))) if laser_pos[2] != 0 else 0
+        norm_y = laser_pos[1] / (laser_pos[2] * np.tan(np.radians(fov_v / 2))) if laser_pos[2] != 0 else 0
+
+        cx, cy = self.img_width / 2, self.img_height / 2
+        u = cx + norm_x * (self.img_width / 2)
+        v = cy + norm_y * (self.img_height / 2)
+
+        u = np.clip(u, 0, self.img_width - 1)
+        v = np.clip(v, 0, self.img_height - 1)
+
+        if self.is_mirrored:
+            u = self.img_width - 1 - u
+
+        return (int(u), int(v))
+
     def calculate_relative_angles(self, pixel_point, ref_point):
         """
         计算从参考点指向图像中某个像素的相对俯仰角和偏航角，
-        并判断该像素是否靠近画面中心（像素级判断）
+        并判断目标点是否接近激光点（像素级判断）
 
         参数:
             pixel_point: 图像中的像素坐标 (u, v)
@@ -89,7 +132,7 @@ class Tracker:
         返回:
             relative_pitch: 相对于参考点的俯仰角（度）
             relative_yaw: 相对于参考点的偏航角（度）
-            arrived: 是否接近画面中心（True / False）
+            arrived: 是否接近激光点（True / False）
         """
         relative_pitch = 0
         relative_yaw = 0
@@ -107,8 +150,13 @@ class Tracker:
         width, height = self.img_width, self.img_height
         cx, cy = width / 2, height / 2
 
-        # 判断像素点是否接近画面中心
-        pixel_distance = np.sqrt((u - cx) ** 2 + (v - cy) ** 2)
+        # 处理镜像图像
+        if self.is_mirrored:
+            u = width - 1 - u
+
+        # 判断目标点是否接近激光点
+        laser_pixel = self.get_laser_pixel_position()
+        pixel_distance = np.sqrt((u - laser_pixel[0]) ** 2 + (v - laser_pixel[1]) ** 2)
         if pixel_distance < self.shoot_tol:
             arrived = True
 
@@ -160,62 +208,6 @@ class Tracker:
         relative_pitch = np.degrees(np.arctan2(delta[1], np.sqrt(delta[0]**2 + delta[2]**2)))
 
         return relative_pitch, relative_yaw, arrived
-
-    def get_laser_pixel_position(self):
-        """
-        计算激光在屏幕上的像素位置
-
-        返回:
-            laser_pixel: 激光在图像上的像素坐标 (u, v)，类型为 tuple
-        """
-        # 参数检查
-        if not (isinstance(self.ref_point, (tuple, list, np.ndarray)) and len(self.ref_point) == 3):
-            raise ValueError("ref_point 必须是长度为3的 (X, Y, Z) 坐标")
-
-        # 激光在相机坐标系中的位置
-        laser_pos = np.array(self.ref_point, dtype=np.float32)
-
-        # 应用逆旋转矩阵（校正相机姿态偏移）
-        yaw_rad = self.offset_yaw * DEG2RAD  # 逆旋转使用正角度
-        cos_yaw = np.cos(yaw_rad)
-        sin_yaw = np.sin(yaw_rad)
-        R_y_inv = np.array([
-            [cos_yaw, 0, -sin_yaw],
-            [0, 1, 0],
-            [sin_yaw, 0, cos_yaw]
-        ], dtype=np.float32)
-
-        pitch_rad = self.offset_pitch * DEG2RAD
-        cos_pitch = np.cos(pitch_rad)
-        sin_pitch = np.sin(pitch_rad)
-        R_x_inv = np.array([
-            [1, 0, 0],
-            [0, cos_pitch, sin_pitch],
-            [0, -sin_pitch, cos_pitch]
-        ], dtype=np.float32)
-
-        # 组合逆旋转矩阵：先逆俯仰（X轴），再逆偏航（Y轴）
-        R_inv = R_y_inv @ R_x_inv
-        laser_pos = R_inv @ laser_pos
-
-        # 计算视场角
-        fov_h = self.vfov
-        fov_v = self.vfov * self.img_height / self.img_width
-
-        # 归一化坐标
-        norm_x = laser_pos[0] / (laser_pos[2] * np.tan(np.radians(fov_h / 2))) if laser_pos[2] != 0 else 0
-        norm_y = laser_pos[1] / (laser_pos[2] * np.tan(np.radians(fov_v / 2))) if laser_pos[2] != 0 else 0
-
-        # 转换为像素坐标
-        cx, cy = self.img_width / 2, self.img_height / 2
-        u = cx + norm_x * (self.img_width / 2)
-        v = cy + norm_y * (self.img_height / 2)
-
-        # 确保像素坐标在图像范围内
-        u = np.clip(u, 0, self.img_width - 1)
-        v = np.clip(v, 0, self.img_height - 1)
-
-        return (int(u), int(v))
 
     def track(self, center, dt):
         """跟踪目标并计算相对于激光的俯仰角和偏航角"""

@@ -1,5 +1,6 @@
 #!/bin/bash
-echo "520" | sudo -S chmod 777 /home/sunrise/2025_elc/src/start.sh
+cd LCD-show/
+echo "520" | sudo -S ./MPI5001-show
 echo "520" | sudo -S chmod 777 /home/sunrise/2025_elc/src/main.py
 /usr/bin/python3 /home/sunrise/2025_elc/src/main.py
 

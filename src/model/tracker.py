@@ -223,11 +223,11 @@ class Tracker:
             self.lost += 1
             if self.lost <= self.frame_add:
                 self.if_lost = False
-                return None, None
+                return 0, 0
             else:
                 print("未检测到目标")
                 self.if_lost = True
-                return None, None
+                return 0, 0
         else:
             self.lost = 0
             self.if_lost = False

@@ -26,13 +26,13 @@ def init_board():
     cv2.namedWindow('Controls', cv2.WINDOW_FREERATIO)
     cv2.moveWindow('Controls', 0, 0)
     cv2.resizeWindow('Controls', 320, 500)  # 增加窗口高度以容纳更多轨迹条
-    cv2.createTrackbar('H Min', 'Controls', 133, 179, nothing)
+    cv2.createTrackbar('H Min', 'Controls', 0, 179, nothing)
     cv2.createTrackbar('H Max', 'Controls', 179, 179, nothing)
-    cv2.createTrackbar('S Min', 'Controls', 255, 255, nothing)
+    cv2.createTrackbar('S Min', 'Controls', 0, 255, nothing)
     cv2.createTrackbar('S Max', 'Controls', 255, 255, nothing)
-    cv2.createTrackbar('V Min', 'Controls', 6, 255, nothing)
-    cv2.createTrackbar('V Max', 'Controls', 255, 255, nothing)
-    cv2.createTrackbar('board_min_area', 'Controls', 18310, 307200, nothing)
+    cv2.createTrackbar('V Min', 'Controls', 0, 255, nothing)
+    cv2.createTrackbar('V Max', 'Controls', 55, 255, nothing)
+    cv2.createTrackbar('board_min_area', 'Controls', 11310, 307200, nothing)
     cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
     cv2.createTrackbar('yaw_Kp', 'Controls', 40, 3000, nothing)  # 比例增益
@@ -105,17 +105,14 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
             if not dt_queue.empty():
                 dt = dt_queue.get()  # 获取最新 dt
 
-            if tracker.if_lost == True:
-                stepper_yaw.emm_v5_move_to_angle(angle_deg=270, vel_rpm=1, acc=0, abs_mode=True)
-                continue
+            #f tracker.if_lost == True:
+                # stepper_yaw.emm_v5_move_to_angle(angle_deg=270, vel_rpm=1, acc=0, abs_mode=True)
             
             if not position_queue.empty():
                 position = position_queue.get()
                 target_yaw, target_pitch = tracker.track(position, dt)
-                if target_yaw is None or target_pitch is None:
-                    continue
             
-                if abs(target_yaw) > 0.01:  # 避免微小调整
+                if abs(target_yaw) > 0:  # 避免微小调整
                     try:
                         stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_pid_controller.Kp, vel_rpm=yaw_pid_controller.Ki, acc=yaw_pid_controller.Kd, abs_mode=False)
                         time.sleep(0.01)

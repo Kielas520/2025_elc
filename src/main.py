@@ -31,18 +31,18 @@ def init_board():
     cv2.createTrackbar('S Max', 'Controls', 255, 255, nothing)
     cv2.createTrackbar('V Min', 'Controls', 0, 255, nothing)
     cv2.createTrackbar('V Max', 'Controls', 55, 255, nothing)
-    cv2.createTrackbar('board_min_area', 'Controls', 11310, 307200, nothing)
-    cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
+    cv2.createTrackbar('board_min_area', 'Controls', 5000, 307200, nothing)
+    cv2.createTrackbar('board_max_area', 'Controls', 54000, 307200, nothing)
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
-    cv2.createTrackbar('yaw_kp', 'Controls', 1, 100, nothing)  # 偏航角倍率: 0-10
-    cv2.createTrackbar('pitch_kp', 'Controls', 1, 1000, nothing)  # 俯仰角倍率: 0-10
-    cv2.createTrackbar('vel_rpm', 'Controls', 1000, 5000, nothing)  # 速度: 0-5000 RPM
-    cv2.createTrackbar('acc', 'Controls', 50, 255, nothing)  # 加速度: 0-255
+    cv2.createTrackbar('yaw_kp', 'Controls', 5, 100, nothing)  # 偏航角倍率: 0-10
+    cv2.createTrackbar('pitch_kp', 'Controls', 6, 100, nothing)  # 俯仰角倍率: 0-10
+    cv2.createTrackbar('vel_rpm', 'Controls', 5000, 5000, nothing)  # 速度: 0-5000 RPM
+    cv2.createTrackbar('acc', 'Controls', 255, 255, nothing)  # 加速度: 0-255
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('show', 'Controls', 0, 1, nothing)
-    cv2.createTrackbar('shoot_tol', 'Controls', 10, 200, nothing)
-    cv2.createTrackbar('offset_pitch', 'Controls', 10, 20, nothing)
+    cv2.createTrackbar('shoot_tol', 'Controls', 14, 200, nothing)
+    cv2.createTrackbar('offset_pitch', 'Controls', 11, 20, nothing)
 
 def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -88,20 +88,24 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
             if not position_queue.empty():
                 position = position_queue.get()
                 target_yaw, target_pitch = tracker.track(position, dt)
-
-                # 获取控制参数
-                yaw_kp, pitch_kp, vel_rpm, acc = update_hsv()
-
-                if abs(target_yaw) > 0:  # 避免微小调整
+                if tracker.if_lost == True:
                     try:
-                        stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
+                        stepper_yaw.emm_v5_move_to_angle(angle_deg=3, vel_rpm=2000, acc=0, abs_mode=False)
                     except Exception as e:
                         print(f"Yaw 电机错误: {str(e)}")
-                if abs(target_pitch) > 0:
-                    try:
-                        stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
-                    except Exception as e:
-                        print(f"Pitch 电机错误: {str(e)}")
+                else:
+                    # 获取控制参数
+                    yaw_kp, pitch_kp, vel_rpm, acc = update_hsv()
+                    if abs(target_yaw) > 0:  # 避免微小调整
+                        try:
+                            stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
+                        except Exception as e:
+                            print(f"Yaw 电机错误: {str(e)}")
+                    if abs(target_pitch) > 0:
+                        try:
+                            stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
+                        except Exception as e:
+                            print(f"Pitch 电机错误: {str(e)}")
 
         except Exception as e:
             print(f"跟踪线程错误: {str(e)}")
@@ -116,7 +120,7 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
             heart_beat.flash()
             if detector.task in [0, 1]:
                 task_info.set_value(1 if detector.task > 0 else 0)
-                lazer.set_value(1 if detector.task > 0 else 0)
+                lazer.set_value(0 if detector.task > 0 else 0)
             new_task = task_switch.button_callback(detector.task)
             detector.task = new_task
             if not tracker.shoot:
@@ -226,7 +230,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=-10, offset_yaw=0.0, is_mirrored=False)
+tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=50, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=-10, offset_yaw=0.0, is_mirrored=False)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)

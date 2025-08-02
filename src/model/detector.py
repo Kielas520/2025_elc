@@ -183,7 +183,7 @@ class Detector:
         self.target = tuple(target)
 
         if tracker.shoot == True:
-            self.circle_step = (self.circle_step + 1) % 120
+            self.circle_step = (self.circle_step + 1) % 360
 
         return self.target
 

@@ -34,14 +34,15 @@ def init_board():
     cv2.createTrackbar('board_min_area', 'Controls', 11310, 307200, nothing)
     cv2.createTrackbar('board_max_area', 'Controls', 50000, 307200, nothing)
     cv2.createTrackbar('diameter_ratio', 'Controls', 40, 70, nothing)
-    cv2.createTrackbar('yaw_kp', 'Controls', 100, 1000, nothing)  # 偏航角倍率: 0-10
-    cv2.createTrackbar('pitch_kp', 'Controls', 100, 1000, nothing)  # 俯仰角倍率: 0-10
+    cv2.createTrackbar('yaw_kp', 'Controls', 1, 100, nothing)  # 偏航角倍率: 0-10
+    cv2.createTrackbar('pitch_kp', 'Controls', 1, 1000, nothing)  # 俯仰角倍率: 0-10
     cv2.createTrackbar('vel_rpm', 'Controls', 1000, 5000, nothing)  # 速度: 0-5000 RPM
     cv2.createTrackbar('acc', 'Controls', 50, 255, nothing)  # 加速度: 0-255
     cv2.createTrackbar('cx_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('cy_offset', 'Controls', 30, 60, nothing)
     cv2.createTrackbar('show', 'Controls', 0, 1, nothing)
     cv2.createTrackbar('shoot_tol', 'Controls', 10, 200, nothing)
+    cv2.createTrackbar('offset_pitch', 'Controls', 10, 20, nothing)
 
 def update_hsv():
     h_min = cv2.getTrackbarPos('H Min', 'Controls')
@@ -61,6 +62,7 @@ def update_hsv():
     cy_offset = cv2.getTrackbarPos('cy_offset', 'Controls')
     show = cv2.getTrackbarPos('show', 'Controls')
     shoot_tol = cv2.getTrackbarPos('shoot_tol', 'Controls')
+    offset_pitch = cv2.getTrackbarPos('offset_pitch', 'Controls')
 
     detector.board_lower = (h_min, s_min, v_min)
     detector.board_upper = (h_max, s_max, v_max)
@@ -70,7 +72,7 @@ def update_hsv():
     detector.cx_offset = cx_offset - 30
     detector.cy_offset = cy_offset - 30
     detector.show_img = show
-
+    tracker.offset_pitch = offset_pitch - 10
     tracker.shoot_tol = shoot_tol
 
     return yaw_kp / 100.0, pitch_kp / 100.0, vel_rpm, acc
@@ -90,12 +92,12 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
                 # 获取控制参数
                 yaw_kp, pitch_kp, vel_rpm, acc = update_hsv()
 
-                if abs(target_yaw) > 0.1:  # 避免微小调整
+                if abs(target_yaw) > 0:  # 避免微小调整
                     try:
                         stepper_yaw.emm_v5_move_to_angle(angle_deg=target_yaw * yaw_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
                     except Exception as e:
                         print(f"Yaw 电机错误: {str(e)}")
-                if abs(target_pitch) > 0.1:
+                if abs(target_pitch) > 0:
                     try:
                         stepper_pitch.emm_v5_move_to_angle(angle_deg=target_pitch * pitch_kp, vel_rpm=vel_rpm, acc=acc, abs_mode=False)
                     except Exception as e:
@@ -105,7 +107,7 @@ def tracking_and_steering_thread(tracker, stepper_yaw, stepper_pitch, position_q
             print(f"跟踪线程错误: {str(e)}")
 
         # 移除 time.sleep 以提高频率
-        # time.sleep(0.0001)  # 可选：如果 CPU 使用率过高，可尝试 0.1ms
+        time.sleep(0.000001)  # 可选：如果 CPU 使用率过高，可尝试 0.1ms
 
 def decision(running, detector, tracker, heart_beat, task_info, task_switch, lazer):
     """决策线程，用于处理心跳、任务信息显示和任务切换"""
@@ -114,6 +116,7 @@ def decision(running, detector, tracker, heart_beat, task_info, task_switch, laz
             heart_beat.flash()
             if detector.task in [0, 1]:
                 task_info.set_value(1 if detector.task > 0 else 0)
+                lazer.set_value(1 if detector.task > 0 else 0)
             new_task = task_switch.button_callback(detector.task)
             detector.task = new_task
             if not tracker.shoot:
@@ -223,7 +226,7 @@ def main():
 
 cam = camera.Camera(index=0, format='MJPG', width=640, height=480, fps=240)
 detector = Detector.Detector(board_color=[(13, 255, 152), (0, 51, 110)], board_min_area=18310, board_max_area=50000, diameter_ratio=0.5)
-tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=1.0, offset_yaw=0.0, is_mirrored=False)
+tracker = Tracker.Tracker(img_width=640, img_height=480, vfov=100, use_kf=False, frame_add=10, shoot_tol=5, ref_point=(-0.03, 0, 0), offset_pitch=-10, offset_yaw=0.0, is_mirrored=False)
 stepper_yaw = Stepper.MotorController(port='/dev/ttyS1', baudrate=115200, timeout=0.001, motor_id=1)
 stepper_pitch = Stepper.MotorController(port='/dev/ttyS3', baudrate=115200, timeout=0.001, motor_id=2)
 heart_beat = GPIN(pin=13, mode=1)

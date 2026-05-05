@@ -32,9 +32,28 @@ class Detector:
         self.frame_center = None
         self.lazer_center = None
 
+    # def process(self, frame):
+    #     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    #     mask = cv2.inRange(hsv, self.board_lower, self.board_upper)
+    #     self.board_mask = mask
+    #     self.frame_center = (frame.shape[1] / 2 + self.cx_offset, frame.shape[0] / 2 + self.cy_offset)
+    #     return mask
+
     def process(self, frame):
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, self.board_lower, self.board_upper)
+        # 1. 转为灰度图
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # 2. 高斯滤波（可选，有助于减少噪声对二值化的干扰）
+        # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # 3. 执行 Otsu 二值化
+        # cv2.THRESH_BINARY_INV 表示如果背景亮目标暗则反色，cv2.THRESH_BINARY 表示目标亮
+        # 加上 cv2.THRESH_OTSU 后，阈值参数（第一个 0）会被自动计算
+        ret, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        # 如果你的目标在 Otsu 下是白色（255），就用 THRESH_BINARY
+        # 如果你的目标在 Otsu 下是黑色（0），就用 THRESH_BINARY_INV 实现反色
+        
         self.board_mask = mask
         self.frame_center = (frame.shape[1] / 2 + self.cx_offset, frame.shape[0] / 2 + self.cy_offset)
         return mask
@@ -182,8 +201,8 @@ class Detector:
         target = cv2.perspectiveTransform(pt, M_inv)[0][0]
         self.target = tuple(target)
 
-        if tracker.shoot == True:
-            self.circle_step = (self.circle_step + 1) % 360
+        # if tracker.shoot == True:
+        self.circle_step = (self.circle_step + 1) % 360
 
         return self.target
 
